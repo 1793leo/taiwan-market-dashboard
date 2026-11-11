@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>台股儀表板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">TW</span>
+    <div>
+      <h1>台股儀表板</h1>
+      <p class="sub">上市櫃普通股 · 每日盤後更新 · <span id="updated">載入中…</span></p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="breadth" role="tab">市場寬度</button>
+    <button class="tab" data-tab="next" role="tab">更多分頁（規劃中）</button>
+  </nav>
+</header>
+
+<main>
+  <section id="tab-breadth" class="panel active">
+    <div class="cards">
+      <div class="card"><div class="k">加權指數</div><div class="v" id="c-close">—</div><div class="d" id="c-chg">—</div></div>
+      <div class="card"><div class="k">成交金額</div><div class="v" id="c-turn">—</div><div class="d" id="c-date">—</div></div>
+      <div class="card b5"><div class="k">低於 5 日均價</div><div class="v" id="c-b5">—</div><div class="d" id="c-b5p">—</div></div>
+      <div class="card b20"><div class="k">低於 20 日均價</div><div class="v" id="c-b20">—</div><div class="d" id="c-b20p">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" id="range">
+        <button data-r="63">3M</button><button data-r="126" class="on">6M</button>
+        <button data-r="252">1Y</button><button data-r="0">全部</button>
+      </div>
+      <div class="seg" id="mode">
+        <button data-m="count" class="on">家數</button><button data-m="pct">比例 %</button>
+      </div>
+    </div>
+
+    <div class="chartbox">
+      <div class="legend" id="lg-k"></div>
+      <div id="chart-k" class="chart tall"></div>
+    </div>
+    <div class="chartbox">
+      <div class="legend" id="lg-b"></div>
+      <div id="chart-b" class="chart"></div>
+    </div>
+    <p class="note">
+      家數以「收盤價 &lt; 個股自身近 N 個有成交日收盤均價」計算；分母為當日有收盤價且已有 N 日資料的普通股（排除 ETF、權證、特別股、TDR、可轉債）。股價未還原除權息。成交量柱為大盤成交金額（億元）。資料來源：臺灣證券交易所、證券櫃檯買賣中心。
+    </p>
+  </section>
+
+  <section id="tab-next" class="panel">
+    <div class="empty">此分頁預留給下一個功能。</div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
