@@ -21,8 +21,8 @@
     return {
       time: d, open: T.open[i], high: T.high[i], low: T.low[i], close: T.close[i],
       vol: T.volume[i], turn: T.turnover[i],
-      b5: j == null ? null : B.below5[j], t5: j == null ? null : B.total5[j],
-      b20: j == null ? null : B.below20[j], t20: j == null ? null : B.total20[j],
+      b5: j == null ? null : B.above5[j], t5: j == null ? null : B.total5[j],
+      b20: j == null ? null : B.above20[j], t20: j == null ? null : B.total20[j],
     };
   });
   const byTime = new Map(rows.map((r, i) => [r.time, i]));
@@ -90,8 +90,8 @@
       + `<span class="muted">股數</span><span>${fmt(r.vol / 1e6, 0)} 百萬股</span></span>`;
     const p5 = pct(r.b5, r.t5), p20 = pct(r.b20, r.t20);
     lgB.innerHTML = `<b>${r.time}</b>`
-      + `<span style="color:${C.b5}">● 低於5日均 ${r.b5 ?? '—'}/${r.t5 ?? '—'} (${fmt(p5, 1)}%)</span>`
-      + `<span style="color:${C.b20}">● 低於20日均 ${r.b20 ?? '—'}/${r.t20 ?? '—'} (${fmt(p20, 1)}%)</span>`;
+      + `<span style="color:${C.b5}">● 高於5日均 ${r.b5 ?? '—'}/${r.t5 ?? '—'} (${fmt(p5, 1)}%)</span>`
+      + `<span style="color:${C.b20}">● 高於20日均 ${r.b20 ?? '—'}/${r.t20 ?? '—'} (${fmt(p20, 1)}%)</span>`;
   }
   const last = rows.length - 1;
   legend(last);

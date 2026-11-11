@@ -18,18 +18,18 @@
     </div>
   </div>
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="breadth" role="tab">市場寬度</button>
+    <button class="tab active" data-tab="ma-trend" role="tab">市場均線風向</button>
     <button class="tab" data-tab="next" role="tab">更多分頁（規劃中）</button>
   </nav>
 </header>
 
 <main>
-  <section id="tab-breadth" class="panel active">
+  <section id="tab-ma-trend" class="panel active">
     <div class="cards">
       <div class="card"><div class="k">加權指數</div><div class="v" id="c-close">—</div><div class="d" id="c-chg">—</div></div>
       <div class="card"><div class="k">成交金額</div><div class="v" id="c-turn">—</div><div class="d" id="c-date">—</div></div>
-      <div class="card b5"><div class="k">低於 5 日均價</div><div class="v" id="c-b5">—</div><div class="d" id="c-b5p">—</div></div>
-      <div class="card b20"><div class="k">低於 20 日均價</div><div class="v" id="c-b20">—</div><div class="d" id="c-b20p">—</div></div>
+      <div class="card b5"><div class="k">高於 5 日均價</div><div class="v" id="c-b5">—</div><div class="d" id="c-b5p">—</div></div>
+      <div class="card b20"><div class="k">高於 20 日均價</div><div class="v" id="c-b20">—</div><div class="d" id="c-b20p">—</div></div>
     </div>
 
     <div class="toolbar">
@@ -51,7 +51,7 @@
       <div id="chart-b" class="chart"></div>
     </div>
     <p class="note">
-      家數以「收盤價 &lt; 個股自身近 N 個有成交日收盤均價」計算；分母為當日有收盤價且已有 N 日資料的普通股（排除 ETF、權證、特別股、TDR、可轉債）。股價未還原除權息。成交量柱為大盤成交金額（億元）。資料來源：臺灣證券交易所、證券櫃檯買賣中心。
+      家數以「收盤價 &gt; 個股自身近 N 個有成交日收盤均價」計算；分母為當日有收盤價且已有 N 日資料的普通股（排除 ETF、權證、特別股、TDR、可轉債）。股價未還原除權息。成交量柱為大盤成交金額（億元）。資料來源：臺灣證券交易所、證券櫃檯買賣中心。
     </p>
   </section>
 

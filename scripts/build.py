@@ -1,7 +1,7 @@
 """
-計算市場寬度並產生網站：
-  below5  = 收盤價 < 自身近 5 個交易日收盤均價 的普通股家數
-  below20 = 收盤價 < 自身近 20 個交易日收盤均價 的普通股家數
+計算「市場均線風向」並產生網站：
+  above5  = 收盤價 > 自身近 5 個交易日收盤均價 的普通股家數
+  above20 = 收盤價 > 自身近 20 個交易日收盤均價 的普通股家數
   total5/total20 = 當日有收盤價且均價可計算的家數（分母）
 均價以個股「有成交」的交易日計算（停牌/無成交日不納入）。
 """
@@ -40,10 +40,10 @@ def compute_breadth(stocks: pd.DataFrame) -> pd.DataFrame:
         ma = g.transform(lambda s, n=n: s.rolling(n, min_periods=n).mean())
         valid = ma.notna()
         df[f"v{n}"] = valid
-        df[f"b{n}"] = valid & (df["close"] < ma)
+        df[f"b{n}"] = valid & (df["close"] > ma)
     agg = df.groupby("date").agg(
-        below5=("b5", "sum"), total5=("v5", "sum"),
-        below20=("b20", "sum"), total20=("v20", "sum"),
+        above5=("b5", "sum"), total5=("v5", "sum"),
+        above20=("b20", "sum"), total20=("v20", "sum"),
         stocks=("code", "count"),
         twse=("market", lambda s: (s == "twse").sum()),
         tpex=("market", lambda s: (s == "tpex").sum()),
@@ -78,7 +78,7 @@ def build(data: Path, site: Path, start: dt.date | None = None):
             "volume": tx["volume"].fillna(0).astype("int64").tolist(),
             "turnover": tx["turnover"].fillna(0).astype("int64").tolist(),
         },
-        "breadth": {c: br[c].tolist() for c in ["date", "below5", "total5", "below20", "total20"]},
+        "breadth": {c: br[c].tolist() for c in ["date", "above5", "total5", "above20", "total20"]},
     }
     for k, v in payload["breadth"].items():
         if k != "date":
