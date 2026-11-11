@@ -19,7 +19,7 @@
   </div>
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="ma-trend" role="tab">市場均線風向</button>
-    <button class="tab" data-tab="next" role="tab">更多分頁（規劃中）</button>
+    <button class="tab" data-tab="contrib" role="tab">貢獻點數</button>
   </nav>
 </header>
 
@@ -55,12 +55,37 @@
     </p>
   </section>
 
-  <section id="tab-next" class="panel">
-    <div class="empty">此分頁預留給下一個功能。</div>
+  <section id="tab-contrib" class="panel">
+    <div class="ct-head">
+      <span id="ct-status" class="pill">載入中…</span>
+      <span id="ct-time" class="ct-time"></span>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="k">加權指數</div><div class="v" id="ct-idx">—</div><div class="d" id="ct-idxchg">—</div></div>
+      <div class="card"><div class="k">前 100 大權值股合計</div><div class="v" id="ct-top">—</div><div class="d" id="ct-topsub">—</div></div>
+      <div class="card"><div class="k">其他個股</div><div class="v" id="ct-other">—</div><div class="d">大盤漲跌 − 前 100 大合計</div></div>
+      <div class="card"><div class="k">最大影響</div><div class="v" id="ct-max">—</div><div class="d" id="ct-maxsub">—</div></div>
+    </div>
+    <div class="ct-cols">
+      <div class="ct-col">
+        <div class="ct-colhead"><h3 class="up">正貢獻</h3><span id="ct-pos-sum" class="up"></span></div>
+        <ol id="ct-pos" class="ct-list"></ol>
+        <button id="ct-pos-more" class="more" hidden></button>
+      </div>
+      <div class="ct-col">
+        <div class="ct-colhead"><h3 class="down">負貢獻</h3><span id="ct-neg-sum" class="down"></span></div>
+        <ol id="ct-neg" class="ct-list"></ol>
+        <button id="ct-neg-more" class="more" hidden></button>
+      </div>
+    </div>
+    <p class="note" id="ct-note">
+      上市市值前 100 大普通股。貢獻點數 = 漲跌 × 發行股數 ÷ 加權指數除數（除數 = 上市總市值 ÷ 指數），漲跌以參考價計算，除權息日已調整。盤中每 15 秒更新即時報價；收盤後由每日排程更新為官方收盤結果。資料來源：臺灣證券交易所。
+    </p>
   </section>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/contrib.js"></script>
 </body>
 </html>

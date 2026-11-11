@@ -109,14 +109,37 @@ def fetch_twse_stocks(date: dt.date) -> list[dict]:
     ic, iname = _find_col(f, "證券代號"), _find_col(f, "證券名稱")
     io, ih, il, icl = (_find_col(f, k) for k in ("開盤價", "最高價", "最低價", "收盤價"))
     iv = _find_col(f, "成交股數")
+    isg, ich = _find_col(f, "漲跌(+/-)"), _find_col(f, "漲跌價差")
     rows = []
     for d in tbl["data"]:
+        change = None
+        if isg is not None and ich is not None:
+            sign = re.sub(r"<[^>]+>", "", str(d[isg])).strip()
+            mag = num(d[ich])
+            if mag is not None:
+                change = -mag if sign == "-" else (mag if sign == "+" else 0.0)
         rows.append({
             "code": str(d[ic]).strip(), "name": str(d[iname]).strip(),
             "open": num(d[io]), "high": num(d[ih]), "low": num(d[il]),
             "close": num(d[icl]), "volume": num(d[iv]),
+            "change": change,  # 相對參考價的漲跌（除權息日已調整）
         })
     return _filter_common(rows)
+
+
+def fetch_twse_shares() -> dict[str, float]:
+    """上市公司已發行普通股數（證交所 OpenAPI，每日更新）"""
+    r = _session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", timeout=60)
+    r.raise_for_status()
+    out = {}
+    for row in r.json():
+        code = str(row.get("公司代號", "")).strip()
+        s = num(row.get("已發行普通股數或TDR原股發行股數"))
+        if COMMON_STOCK_RE.match(code) and s:
+            out[code] = s
+    if len(out) < 500:
+        raise RuntimeError(f"股本資料筆數異常: {len(out)}")
+    return out
 
 
 # ---------------------------------------------------------------- TPEx stocks

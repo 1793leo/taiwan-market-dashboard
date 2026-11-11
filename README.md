@@ -8,6 +8,19 @@
 - 收盤價 **高於 20 日均價** 的普通股家數 / 比例
 - 兩圖時間軸與十字線同步；可切換「家數 / 比例 %」與 3M / 6M / 1Y / 全部
 
+## 分頁二：貢獻點數
+- 上市市值前 100 大普通股，對加權指數的正 / 負貢獻點數，各顯示前 20 名，其餘可展開
+- 貢獻點數 = 漲跌 × 發行股數 ÷ 除數；除數 = 上市總市值 ÷ 加權指數（與證交所編算邏輯一致，實測全體加總與大盤漲跌誤差約 0.1%）
+- 盤後：每日排程以官方收盤資料計算（`data/shares_twse.csv` 為每日更新的發行股數）
+- 盤中（9:00–13:30）：網頁每 15 秒透過 Cloudflare Worker 中繼抓證交所即時行情計算
+
+### 設定盤中即時報價（Cloudflare Worker，免費）
+1. 註冊 / 登入 https://dash.cloudflare.com
+2. 左側 **Workers & Pages → Create → Create Worker**，名稱例如 `tw-quote`，按 Deploy
+3. 按 **Edit code**，把 `worker/quote-proxy.js` 的內容整段貼上覆蓋，按 **Deploy**
+4. 複製 Worker 網址（例如 `https://tw-quote.<帳號>.workers.dev`），填入 `web/config.json` 的 `quoteProxy`
+5. Commit 後自動部署；開盤時間打開「貢獻點數」分頁即會顯示「● 盤中即時」
+
 ## 資料範圍
 | 資料 | 來源 | 欄位 |
 |---|---|---|

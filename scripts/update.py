@@ -2,7 +2,7 @@
 增量更新：
   1. 更新加權指數 (data/taiex.csv)
   2. 以指數交易日為基準，補齊上市/上櫃普通股日 K (data/stocks/{twse,tpex}/YYYY-MM.csv)
-  3. 計算市場寬度並輸出網站資料 (build.py)
+  3. 計算市場均線風向、貢獻點數並輸出網站資料 (build.py)
 
 第一次執行會自動回補 --years 年的資料；中途因時間上限中斷，下次執行會從缺口續抓。
 用法: python scripts/update.py --years 3 --budget 300
@@ -25,7 +25,8 @@ import build  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 TAIEX_CSV = DATA / "taiex.csv"
-STOCK_COLS = ["date", "code", "name", "open", "high", "low", "close", "volume"]
+STOCK_COLS = ["date", "code", "name", "open", "high", "low", "close", "volume", "change"]
+SHARES_CSV = DATA / "shares_twse.csv"
 TPE = dt.timezone(dt.timedelta(hours=8))
 
 FETCHERS = {
@@ -162,7 +163,36 @@ def main():
         for t in threads:
             t.join()
         log("抓取結果:", report)
+        ensure_latest_change(days[-1])
+        update_shares()
     build.build(DATA, Path(args.site), start)
+
+
+def ensure_latest_change(day: dt.date):
+    """貢獻點數需要最新交易日的『漲跌價差』；舊資料沒有此欄位時補抓一次"""
+    p = month_file("twse", day.year, day.month)
+    if not p.exists():
+        return
+    df = pd.read_csv(p, dtype={"code": str})
+    cur = df[df["date"] == day.isoformat()]
+    if len(cur) and "change" in df.columns and cur["change"].notna().sum() > len(cur) * 0.5:
+        return
+    try:
+        rows = twdata.fetch_twse_stocks(day)
+        save_rows("twse", [{**r, "date": day.isoformat()} for r in rows])
+        log(f"twse: {day} 補上漲跌價差")
+    except Exception as e:  # noqa: BLE001
+        log(f"twse: {day} 補漲跌價差失敗 {e}")
+
+
+def update_shares():
+    try:
+        shares = twdata.fetch_twse_shares()
+    except Exception as e:  # noqa: BLE001
+        log(f"股本資料更新失敗，沿用舊資料: {e}")
+        return
+    pd.DataFrame(sorted(shares.items()), columns=["code", "shares"]).to_csv(SHARES_CSV, index=False)
+    log(f"股本資料 {len(shares)} 檔")
 
 
 if __name__ == "__main__":

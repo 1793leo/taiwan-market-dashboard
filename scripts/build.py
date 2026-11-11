@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pandas as pd
 
+import contrib
+
 ROOT = Path(__file__).resolve().parent.parent
 WINDOWS = (5, 20)
 
@@ -85,12 +87,14 @@ def build(data: Path, site: Path, start: dt.date | None = None):
             payload["breadth"][k] = [int(x) for x in v]
     (site / "data" / "dashboard.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-    for name in ("index.html", "assets"):
+    contrib.write(data, site)
+
+    for name in ("index.html", "config.json", "assets"):
         src = ROOT / "web" / name
         dst = site / name
         if src.is_dir():
             shutil.copytree(src, dst, dirs_exist_ok=True)
-        else:
+        elif src.exists():
             shutil.copy2(src, dst)
     print(f"site built: {site}  breadth days={len(br)}  taiex days={len(tx)}")
 
