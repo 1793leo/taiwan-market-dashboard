@@ -47,10 +47,10 @@
       <td class="muted mono">${k + 1}</td>
       <td><b>${r.n}</b><em class="sub">${r.c}</em></td>
       <td class="r mono b ${cls(r.chg)}">${fmt(r.p)}</td><td class="r mono hide-sm ${cls(r.chg)}">${sgn(r.chg)}</td>
-      <td class="r mono b">${fmt(r.v, 0)}</td><td class="r mono hide-sm">${fmt(r.amt / 1e4, 0)}</td>
+      <td class="r mono b">${fmt(r.v, 0)}</td><td class="r mono muted">${fmt(r.pv, 0)}</td><td class="r mono hide-sm">${fmt(r.amt / 1e4, 0)}</td>
       <td class="r mono hide-sm">${fmt(r.sp)}</td><td class="r mono hide-sm">${fmt(r.conv)}</td>
       <td class="r mono">${fmt(r.parity)}</td><td class="r mono ${cls(r.prem)}">${r.prem == null ? '—' : sgn(r.prem) + '%'}</td>
-    </tr>`).join('') || '<tr><td colspan="10" class="none">目前沒有資料</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="11" class="none">目前沒有資料</td></tr>';
   }
   renderTop(D.top, `盤後 · ${D.qdate}`);
 
@@ -79,7 +79,7 @@
         const p = num(x.z) ?? (b && a ? (b + a) / 2 : b ?? a) ?? y;
         const h = num(x.h) ?? p, l = num(x.l) ?? p;
         const [, n, conv, s, m] = info.get(c) || [c, x.n, null, null, null];
-        list.push({ c, n: n || x.n, p, chg: y && p ? p - y : null, v, amt: v * 1000 * (h + l + p) / 3, s, m, conv });
+        list.push({ c, n: n || x.n, p, chg: y && p ? p - y : null, v, pv: (D.vlast || {})[c] ?? 0, amt: v * 1000 * (h + l + p) / 3, s, m, conv });
       }
       list.sort((a, b) => b.v - a.v);
       list = list.slice(0, 30);

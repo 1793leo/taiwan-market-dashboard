@@ -263,8 +263,13 @@ def write(data: Path, site: Path):
              for r in w.itertuples()]
 
     # 成交量前 30（行情最新一日）
-    q = pd.concat([pd.read_csv(p, dtype={"code": str}) for p in qfiles[-2:]])
-    qdate = q["date"].max()
+    qall = pd.concat([pd.read_csv(p, dtype={"code": str}) for p in qfiles[-2:]])
+    qdates = sorted(qall["date"].unique())
+    qdate = qdates[-1]
+    units_on = lambda d: qall[qall["date"] == d].set_index("code")["units"]  # noqa: E731
+    prev_units = units_on(qdates[-2]) if len(qdates) > 1 else pd.Series(dtype=float)
+    last_units = units_on(qdate)
+    q = qall
     q = q[(q["date"] == qdate) & (q["units"] > 0)].sort_values(["units", "amount"], ascending=False).head(TOP_N)
     binfo = board.set_index("code")
     top = []
@@ -276,13 +281,14 @@ def write(data: Path, site: Path):
             spx = float(today.at[b["s"], "close"])
         parity = 100 * spx / conv if conv and spx else None
         top.append({"c": r.code, "n": r.name, "p": r.close, "chg": None if pd.isna(r.chg) else r.chg,
-                    "v": int(r.units), "amt": int(r.amount), "s": r.code[:4],
+                    "v": int(r.units), "pv": int(prev_units.get(r.code, 0) or 0), "amt": int(r.amount), "s": r.code[:4],
                     "sp": spx, "conv": conv, "parity": round(parity, 2) if parity else None,
                     "prem": round((r.close / parity - 1) * 100, 2) if parity and r.close == r.close and r.close else None})
 
     # 盤中成交量排行用：全部掛牌中的可轉債 [代號, 簡稱, 轉換價, 標的代號, 標的市場(若可對應)]
     allcb = [[r.code, r.name, float(r.conv), r.s, today.at[r.s, "m"] if r.ok else None] for r in board.itertuples()]
-    out = {"date": bdate, "qdate": qdate, "breakout": breakout, "watch": watch, "top": top, "all": allcb}
+    out = {"date": bdate, "qdate": qdate, "breakout": breakout, "watch": watch, "top": top, "all": allcb,
+           "vlast": {c: int(v) for c, v in last_units.items() if v and v == v}}   # 盤中排行的「前一日成交量」
     (site / "data").mkdir(parents=True, exist_ok=True)
     (site / "data" / "cb.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":"), default=float),
                                            encoding="utf-8")
