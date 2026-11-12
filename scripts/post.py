@@ -104,6 +104,35 @@ def fetch_tpex(day: dt.date) -> list[dict]:
     return out
 
 
+def fetch_close_bid(day: dt.date) -> dict[str, int]:
+    """一般交易收盤時最後揭示買量（張）：上市 MI_INDEX、上櫃 afterTrading/otc"""
+    out = {}
+    j = twdata._request("GET", "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
+                        params={"date": day.strftime("%Y%m%d"), "type": "ALLBUT0999", "response": "json"})
+    t = next((t for t in j.get("tables") or [] if t.get("fields") and "證券代號" in t["fields"]), None)
+    if t:
+        f = t["fields"]; ic, iv = f.index("證券代號"), f.index("最後揭示買量")
+        for r in t["data"]:
+            if twdata.COMMON_STOCK_RE.match(str(r[ic]).strip()):
+                out[str(r[ic]).strip()] = int(twdata.num(r[iv]) or 0)
+    time.sleep(3)
+    form = {"date": day.strftime("%Y/%m/%d"), "type": "EW", "response": "json"}
+    try:
+        j = twdata._request("POST", "https://www.tpex.org.tw/www/zh-tw/afterTrading/otc", data=form, retries=3)
+    except Exception:  # noqa: BLE001
+        j = twdata._request("GET", "https://www.tpex.org.tw/www/zh-tw/afterTrading/otc", params=form, retries=3)
+    t = next((t for t in j.get("tables") or [] if t.get("data")), None)
+    if t:
+        f = [twdata._clean_field(x) for x in t["fields"]]
+        ic = f.index("代號"); iv = next(i for i, x in enumerate(f) if x.startswith("最後買量"))
+        for r in t["data"]:
+            if twdata.COMMON_STOCK_RE.match(str(r[ic]).strip()):
+                out[str(r[ic]).strip()] = int(twdata.num(r[iv]) or 0)
+    if len(out) < 1500:
+        raise twdata.NoData(f"收盤委買量 {day} 不完整（{len(out)}）")
+    return out
+
+
 def _closes(data: Path, day: str) -> dict[str, float]:
     out = {}
     for market in ("twse", "tpex"):
@@ -120,6 +149,14 @@ def update(data: Path, trading_days: list[dt.date], log=print, today: dt.date | 
     for d in trading_days[-5:]:
         p = folder / f"{d.isoformat()}.json"
         if p.exists():
+            j = json.loads(p.read_text(encoding="utf-8"))
+            if "close_bid" not in j:          # 舊檔補抓收盤委買量
+                try:
+                    j["close_bid"] = fetch_close_bid(d)
+                    p.write_text(json.dumps(j, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                    log(f"post: {d} 補上收盤委買量")
+                except Exception as e:  # noqa: BLE001
+                    log(f"post: {d} 收盤委買量失敗 {e}")
             continue
         try:
             rows = fetch_twse(d)
@@ -131,7 +168,15 @@ def update(data: Path, trading_days: list[dt.date], log=print, today: dt.date | 
         except Exception as e:  # noqa: BLE001
             log(f"post: {d} 失敗 {e}")
             continue
-        p.write_text(json.dumps({"date": d.isoformat(), "rows": rows}, ensure_ascii=False, separators=(",", ":")),
+        try:
+            close_bid = fetch_close_bid(d)
+        except Exception as e:  # noqa: BLE001
+            log(f"post: {d} 收盤委買量失敗 {e}")
+            close_bid = None
+        doc = {"date": d.isoformat(), "rows": rows}
+        if close_bid:
+            doc["close_bid"] = close_bid
+        p.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")),
                      encoding="utf-8")
         log(f"post: {d} 普通股 {len(rows)} 檔")
         time.sleep(2)
@@ -156,9 +201,13 @@ def write(data: Path, site: Path):
         df = pd.DataFrame(rows)
         lu = limit_ups(data, j["date"])
         df["lu"] = df["c"].isin(lu)
-        limit = [{"c": x.c, "n": x.n, "m": x.m, "p": x.p, "pct": lu[x.c]["pct"], "bid": int(x.bid), "bv": float(x.bv),
-                  "ask": int(x.ask), "av": float(x.av), "vol": int(x.vol), "t": bool(x.traded)}
-                 for x in df[df["lu"]].sort_values(["bv", "bid"], ascending=False).itertuples()]
+        cbid = j.get("close_bid") or {}
+        limit = []
+        for x in df[df["lu"]].sort_values(["bv", "bid"], ascending=False).itertuples():
+            cb = cbid.get(x.c)
+            limit.append({"c": x.c, "n": x.n, "m": x.m, "p": x.p, "pct": lu[x.c]["pct"], "bid": int(x.bid), "bv": float(x.bv),
+                          "ask": int(x.ask), "av": float(x.av), "vol": int(x.vol), "t": bool(x.traded),
+                          "cb": cb, "drop": cb is not None and x.bid < cb})
         df = df[~df["lu"]]                      # 未成交排行排除漲停股
         pick = lambda col, side: [  # noqa: E731
             {"c": x.c, "n": x.n, "m": x.m, "p": x.p, "u": int(getattr(x, side)), "v": float(getattr(x, col)),

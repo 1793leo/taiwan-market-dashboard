@@ -41,15 +41,17 @@
     $('lu-n').textContent = `${L.length} 家`;
     $('lu-nsub').textContent = `上市 ${tse} · 上櫃 ${L.length - tse}`;
     $('lu-bv').textContent = yi(L.reduce((a, r) => a + r.bv, 0));
-    $('lu-top').textContent = L[0] ? L[0].n : '—';
-    $('lu-topsub').textContent = L[0] ? `${fmt(L[0].bid)} 張 · ${yi(L[0].bv)}` : '—';
-    $('lu-body').innerHTML = L.map((r, k) => `<tr>
+    const drops = L.filter((r) => r.drop).length;
+    $('lu-drop').textContent = L.some((r) => r.cb != null) ? `${drops} 家` : '—';
+    $('lu-body').innerHTML = L.map((r, k) => `<tr class="${r.drop ? 'drop' : ''}">
       <td class="muted mono">${k + 1}</td>
-      <td><b>${r.n}</b><em class="sub">${r.c}${r.m === 'otc' ? ' · 櫃' : ''}</em></td>
+      <td><b>${r.n}</b>${r.drop ? '<span class="drop-tag">買盤減少</span>' : ''}<em class="sub">${r.c}${r.m === 'otc' ? ' · 櫃' : ''}</em></td>
       <td class="r mono up b">${fmt(r.p, 2)}</td><td class="r mono up">+${fmt(r.pct, 2)}%</td>
-      <td class="r mono">${fmt(r.bid)}</td><td class="r mono b">${fmt(r.bv / 1e4)}</td>
+      <td class="r mono">${r.cb == null ? '—' : fmt(r.cb)}</td>
+      <td class="r mono ${r.drop ? 'drop-num' : ''}">${fmt(r.bid)}${r.drop && r.cb ? `<em class="sub">−${fmt((1 - r.bid / r.cb) * 100, 0)}%</em>` : ''}</td>
+      <td class="r mono b">${fmt(r.bv / 1e4)}</td>
       <td class="r mono hide-sm">${fmt(r.ask)}</td><td class="r mono hide-sm">${fmt(r.vol)}</td>
-    </tr>`).join('') || '<tr><td colspan="8" class="none">當日沒有漲停的普通股</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="9" class="none">當日沒有漲停的普通股</td></tr>';
   }
   document.querySelectorAll('#pt-sub button').forEach((b) => b.addEventListener('click', () => {
     document.querySelectorAll('#pt-sub button').forEach((x) => x.classList.toggle('on', x === b));

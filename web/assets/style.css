@@ -282,3 +282,8 @@ button.cal-day:hover { border-color: var(--b20); }
 .pt-sub { margin-left: auto; }
 #pt-limit .bk-table td.up { color: var(--up); }
 @media (max-width: 640px) { .pt-sub { margin-left: 0; } }
+.drop-tag { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+  background: #f5a524; color: #fff; vertical-align: 1px; }
+#pt-limit tr.drop td { background: color-mix(in srgb, #f5a524 12%, transparent); }
+#pt-limit tr.drop td:first-child { box-shadow: inset 4px 0 0 #f5a524; }
+#pt-limit .drop-num { color: #c27c00; font-weight: 700; }
