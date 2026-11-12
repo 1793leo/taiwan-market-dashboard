@@ -8,9 +8,12 @@
  *   codes = 上市代號，otc = 上櫃代號
  *   回傳 { time, ver, quotes: [{ c, n, ex, z, y, b, a, o, h, l, v, t, d }] }
  *   一律附帶加權指數 (c = "t00")
+ *
+ *       GET https://<你的worker>.workers.dev/broker
+ *   櫃買中心「熱門股證券商進出排行」（盤中 10:00、11:00、12:00 更新），快取 2 分鐘
  */
 
-const VERSION = 2;
+const VERSION = 3;
 const ALLOWED_ORIGINS = [
   'https://1793leo.github.io',
   'http://localhost:8000',
@@ -49,6 +52,34 @@ async function queryMis(channels) {
   return j.msgArray || [];
 }
 
+let brokerCache = { time: 0, body: '' };
+async function brokerVol(cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+  if (Date.now() - brokerCache.time < 120000) return new Response(brokerCache.body, { headers });
+  try {
+    const r = await fetch('https://www.tpex.org.tw/www/zh-tw/mostActive/brokerVol', {
+      method: 'POST',
+      body: 'response=json',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Referer': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/realtime/broker-vol.html',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+    const text = await r.text();
+    if (!r.ok || !text.trim().startsWith('{')) throw new Error('TPEx HTTP ' + r.status);
+    const j = JSON.parse(text);
+    const t = (j.tables || [])[0] || {};
+    const body = JSON.stringify({ ver: VERSION, time: Date.now(), subtitle: t.subtitle || '', fields: t.fields || [], data: t.data || [] });
+    brokerCache = { time: Date.now(), body };
+    return new Response(body, { headers });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), { status: 502, headers });
+  }
+}
+
 export default {
   async fetch(req) {
     const origin = req.headers.get('Origin') || '';
@@ -59,6 +90,7 @@ export default {
     }
 
     const url = new URL(req.url);
+    if (url.pathname.replace(/\/$/, '') === '/broker') return brokerVol(cors);
     const tse = parseCodes(url.searchParams.get('codes'));
     const otc = parseCodes(url.searchParams.get('otc'));
     const channels = ['tse_t00.tw', ...tse.map((c) => `tse_${c}.tw`), ...otc.map((c) => `otc_${c}.tw`)]

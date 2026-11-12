@@ -23,6 +23,7 @@
     <button class="tab" data-tab="hot" role="tab">成交重心股</button>
     <button class="tab" data-tab="block" role="tab">鉅額交易</button>
     <button class="tab" data-tab="cb" role="tab">可轉債</button>
+    <button class="tab" data-tab="otc-hot" role="tab">櫃買熱門股</button>
   </nav>
 </header>
 
@@ -182,6 +183,16 @@
     </div>
     <p class="note">櫃買中心「每日轉(交)換公司債買賣斷交易行情表」等價成交，依成交張數排序，每日盤後更新；轉換價取自「轉換公司債資訊看板」。溢價率 = 收盤 ÷ 轉換價值 − 1。</p>
   </section>
+
+  <section id="tab-otc-hot" class="panel">
+    <div class="ct-head">
+      <span id="ob-status" class="pill">載入中…</span>
+      <span id="ob-time" class="ct-time"></span>
+      <span class="star-legend"><i class="fx-tag">外</i>外資券商</span>
+    </div>
+    <div id="ob-grid" class="ob-grid"></div>
+    <p class="note">資料來源：證券櫃檯買賣中心「熱門股證券商進出排行（等價整股）」，每檔列出進出量前 10 大券商（單位：張）。櫃買中心於 10:00、11:00、12:00 更新，本頁於整點後 10 分鐘自動更新。外資分點買賣超 = 前 10 大券商中外資券商的（總買量 − 總賣量）合計，未進入前 10 大的外資券商不計入。股價為即時報價。</p>
+  </section>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -190,5 +201,6 @@
 <script src="assets/hot.js"></script>
 <script src="assets/block.js"></script>
 <script src="assets/cb.js"></script>
+<script src="assets/broker.js"></script>
 </body>
 </html>
