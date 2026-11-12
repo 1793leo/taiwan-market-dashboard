@@ -203,27 +203,60 @@ button.cal-day:hover { border-color: var(--b20); }
   #tab-cb .bk-table { font-size: 12px; }
 }
 
-/* ---------- 櫃買熱門股 */
-.ob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
-.ob-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 8px; min-width: 0; }
-.ob-card header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.ob-rank { font: 600 12px "JetBrains Mono", monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 6px;
-  min-width: 26px; text-align: center; padding: 2px 4px; }
-.ob-name { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; flex: 1; }
-.ob-name b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ob-name em { font: normal 11px "JetBrains Mono", monospace; color: var(--muted); }
-.ob-px { font: 600 14px "JetBrains Mono", monospace; text-align: right; white-space: nowrap; }
-.ob-px i { display: block; font-style: normal; font-size: 11px; font-weight: 400; }
-.fx-badge { display: block; text-align: center; font-weight: 700; font-size: 13px; padding: 6px 8px; border-radius: 8px;
-  margin-bottom: 8px; background: var(--grid); color: var(--muted); }
-.fx-badge.buy { background: color-mix(in srgb, var(--up) 14%, transparent); color: var(--up); }
-.fx-badge.sell { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
-.ob-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-.ob-tbl th { font-weight: 500; font-size: 11px; color: var(--muted); text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); }
-.ob-tbl td { padding: 3px 4px; font-family: "JetBrains Mono", "Noto Sans TC", monospace; white-space: nowrap; }
-.ob-tbl td:first-child { font-family: "Noto Sans TC", sans-serif; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+/* ---------- 櫃買熱門股：30 檔一屏 */
+.ob-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 8px;
+  height: max(520px, calc(100vh - 230px)); }
+.ob-card { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between;
+  min-width: 0; min-height: 0; padding: 7px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+.ob-card:hover { border-color: var(--muted); }
+.ob-card.buy { border-color: color-mix(in srgb, var(--up) 45%, var(--line)); }
+.ob-card.sell { border-color: color-mix(in srgb, var(--down) 45%, var(--line)); }
+.ob-top { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.ob-rank { font: 600 10px "JetBrains Mono", monospace; color: var(--muted); }
+.ob-nm { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-top em { font: normal 10px "JetBrains Mono", monospace; color: var(--muted); margin-left: auto; }
+.ob-mid { display: flex; justify-content: space-between; font: 600 13px "JetBrains Mono", monospace; }
+.ob-mid span:last-child { font-weight: 400; font-size: 12px; }
+.ob-mid.up { color: var(--up); } .ob-mid.down { color: var(--down); }
+.fx-badge { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; font-size: 12px; padding: 3px 6px;
+  border-radius: 6px; background: var(--grid); color: var(--muted); white-space: nowrap; overflow: hidden; }
+.fx-badge span { font-family: "JetBrains Mono", monospace; font-weight: 700; }
+.fx-badge.buy { background: color-mix(in srgb, var(--up) 16%, transparent); color: var(--up); }
+.fx-badge.sell { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--down); }
+.fx-badge.big { justify-content: center; font-weight: 700; font-size: 14px; padding: 7px; margin: 10px 0; }
+.star-legend .lg { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin: 0 4px 0 2px; vertical-align: -1px; }
+.star-legend .lg.buy { background: var(--up); } .star-legend .lg.sell { background: var(--down); }
+.ob-modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.ob-modal[hidden] { display: none; }
+.ob-dialog { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; width: min(420px, 100%); }
+.ob-dialog header { display: flex; align-items: center; gap: 10px; padding-right: 28px; }
+.ob-dialog .ob-name { display: flex; flex-direction: column; flex: 1; }
+.ob-dialog .ob-name b { font-size: 17px; }
+.ob-dialog .ob-name em { font: normal 12px "JetBrains Mono", monospace; color: var(--muted); }
+.ob-dialog .ob-px { font: 600 15px "JetBrains Mono", monospace; text-align: right; }
+.ob-dialog .ob-px i { display: block; font-style: normal; font-size: 12px; font-weight: 400; }
+.ob-dialog .ob-px.up { color: var(--up); } .ob-dialog .ob-px.down { color: var(--down); }
+.ob-close { position: absolute; top: 10px; right: 12px; background: none; border: 0; font-size: 22px; color: var(--muted); cursor: pointer; }
+.ob-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ob-tbl th { font-weight: 500; font-size: 11px; color: var(--muted); text-align: left; padding: 4px; border-bottom: 1px solid var(--line); }
+.ob-tbl td { padding: 4px; font-family: "JetBrains Mono", "Noto Sans TC", monospace; white-space: nowrap; }
+.ob-tbl td:first-child { font-family: "Noto Sans TC", sans-serif; }
 .ob-tbl .r { text-align: right; }
 .ob-tbl td.up { color: var(--up); } .ob-tbl td.down { color: var(--down); }
 .ob-tbl tr.fx td { background: color-mix(in srgb, var(--b20) 8%, transparent); }
+@media (max-width: 1100px) { .ob-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 860px) {
+  .ob-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); height: max(560px, calc(100vh - 210px)); gap: 5px; }
+  .ob-card { padding: 4px 6px; border-radius: 8px; }
+  .ob-nm { font-size: 12px; } .ob-top em, .ob-rank { display: none; }
+  .ob-mid { font-size: 11px; } .ob-mid span:last-child { font-size: 10px; }
+  .fx-badge { font-size: 10px; padding: 1px 4px; } .fx-badge b { font-weight: 500; }
+}
 .fx-tag { display: inline-block; font-style: normal; font-size: 10px; line-height: 14px; padding: 0 3px; margin-right: 4px;
   border-radius: 3px; background: var(--b20); color: #fff; vertical-align: 1px; }
+@media (max-width: 860px) {
+  #tab-otc-hot .ct-head { margin-bottom: 8px; gap: 6px 10px; }
+  #ob-time { display: none; }
+  #tab-otc-hot .star-legend { margin-left: 0; font-size: 11px; }
+  .ob-grid { height: max(470px, calc(100svh - 250px)); }
+}

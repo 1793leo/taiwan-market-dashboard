@@ -35,24 +35,40 @@
   }
 
   function render() {
-    $('ob-grid').innerHTML = stocks.map((s) => {
+    $('ob-grid').innerHTML = stocks.map((s, i) => {
       const fx = s.brokers.filter((b) => b.fx);
       const fxNet = fx.reduce((a, b) => a + b.net, 0);
-      const badge = fx.length
-        ? `<span class="fx-badge ${fxNet > 0 ? 'buy' : fxNet < 0 ? 'sell' : ''}">外資分點 ${fxNet > 0 ? '買超' : fxNet < 0 ? '賣超' : '持平'} ${fmt(Math.abs(fxNet))} 張</span>`
-        : '<span class="fx-badge none">前 10 大無外資分點</span>';
+      const side = !fx.length ? 'none' : fxNet > 0 ? 'buy' : fxNet < 0 ? 'sell' : 'flat';
+      const badge = !fx.length ? '<b>無外資分點</b>'
+        : `<b>外資${fxNet > 0 ? '買超' : fxNet < 0 ? '賣超' : '持平'}</b><span>${fmt(Math.abs(fxNet))} 張</span>`;
       const q = px.get(s.code);
-      const price = q ? `<span class="ob-px ${cls(q.pct)}">${fmt(q.p, q.p >= 100 ? 1 : 2)} <i>${sgn(q.pct, 2)}%</i></span>` : '';
-      const rows = s.brokers.map((b) => `<tr class="${b.fx ? 'fx' : ''}">
-        <td>${b.fx ? '<i class="fx-tag">外</i>' : ''}${b.name}</td>
-        <td class="r">${fmt(b.buy)}</td><td class="r">${fmt(b.sell)}</td><td class="r ${cls(b.net)}">${sgn(b.net)}</td></tr>`).join('');
-      return `<article class="ob-card">
-        <header><span class="ob-rank">${s.rank}</span><div class="ob-name"><b>${s.name}</b><em>${s.code}</em></div>${price}</header>
-        ${badge}
-        <table class="ob-tbl"><thead><tr><th>券商</th><th class="r">買</th><th class="r">賣</th><th class="r">買賣超</th></tr></thead><tbody>${rows}</tbody></table>
-      </article>`;
+      return `<button class="ob-card ${side}" data-i="${i}">
+        <div class="ob-top"><span class="ob-rank">${s.rank}</span><b class="ob-nm">${s.name}</b><em>${s.code}</em></div>
+        <div class="ob-mid ${q ? cls(q.pct) : ''}">${q ? `<span>${fmt(q.p, q.p >= 100 ? 1 : 2)}</span><span>${sgn(q.pct, 2)}%</span>` : '<span>—</span>'}</div>
+        <div class="fx-badge ${side}">${badge}</div>
+      </button>`;
     }).join('') || '<div class="empty">目前沒有資料</div>';
   }
+
+  // 點卡片顯示前 10 大券商明細
+  function detail(i) {
+    const s = stocks[i]; if (!s) return;
+    const fx = s.brokers.filter((b) => b.fx), fxNet = fx.reduce((a, b) => a + b.net, 0);
+    const q = px.get(s.code);
+    const rows = s.brokers.map((b) => `<tr class="${b.fx ? 'fx' : ''}">
+      <td>${b.fx ? '<i class="fx-tag">外</i>' : ''}${b.name}</td>
+      <td class="r">${fmt(b.buy)}</td><td class="r">${fmt(b.sell)}</td><td class="r ${cls(b.net)}">${sgn(b.net)}</td></tr>`).join('');
+    $('ob-modal-body').innerHTML = `
+      <header><span class="ob-rank">${s.rank}</span><div class="ob-name"><b>${s.name}</b><em>${s.code}</em></div>
+        ${q ? `<span class="ob-px ${cls(q.pct)}">${fmt(q.p, q.p >= 100 ? 1 : 2)}<i>${sgn(q.pct, 2)}%</i></span>` : ''}</header>
+      <div class="fx-badge big ${!fx.length ? 'none' : fxNet > 0 ? 'buy' : fxNet < 0 ? 'sell' : 'flat'}">${fx.length
+        ? `外資分點 ${fxNet > 0 ? '買超' : fxNet < 0 ? '賣超' : '持平'} ${fmt(Math.abs(fxNet))} 張` : '前 10 大無外資分點'}</div>
+      <table class="ob-tbl"><thead><tr><th>券商</th><th class="r">買</th><th class="r">賣</th><th class="r">買賣超</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $('ob-modal').hidden = false;
+  }
+  $('ob-grid').addEventListener('click', (e) => { const c = e.target.closest('.ob-card'); if (c) detail(+c.dataset.i); });
+  $('ob-modal').addEventListener('click', (e) => { if (e.target.id === 'ob-modal' || e.target.closest('.ob-close')) $('ob-modal').hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('ob-modal').hidden = true; });
 
   async function loadPrices() {
     if (!stocks.length || !proxy) return;
