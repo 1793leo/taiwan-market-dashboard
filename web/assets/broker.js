@@ -17,9 +17,8 @@
   let cfg = { quoteProxy: '' };
   try { cfg = { ...cfg, ...(await (await fetch('config.json', { cache: 'no-cache' })).json()) }; } catch (e) { /* 無設定 */ }
   const proxy = (cfg.quoteProxy || '').replace(/\/$/, '');
-  if (!proxy) { $('ob-status').textContent = '尚未設定即時資料來源'; return; }
 
-  let stocks = [], subtitle = '', loadedAt = 0;
+  let stocks = [], subtitle = '', loadedAt = 0, asof = '';
   const px = new Map();
 
   function parse(j) {
@@ -56,7 +55,7 @@
   }
 
   async function loadPrices() {
-    if (!stocks.length) return;
+    if (!stocks.length || !proxy) return;
     try {
       const j = await (await fetch(`${proxy}/?otc=${stocks.map((s) => s.code).join(',')}`, { cache: 'no-store' })).json();
       for (const x of j.quotes || []) {
@@ -71,8 +70,9 @@
 
   async function load() {
     try {
-      const j = await (await fetch(`${proxy}/broker`, { cache: 'no-store' })).json();
-      if (j.error || !j.data) throw new Error(j.error || '中繼服務需更新（請部署最新 Worker 程式碼）');
+      const j = await (await fetch(`data/broker.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+      if (!j.data) throw new Error('尚無資料');
+      asof = j.date + j.asof;
       stocks = parse(j);
       subtitle = j.subtitle;
       loadedAt = Date.now();
@@ -80,7 +80,7 @@
       const d = subtitle.match(/(\d+)年(\d+)月(\d+)日/);
       $('ob-status').className = 'pill live';
       $('ob-status').textContent = d ? `${+d[1] + 1911}-${d[2]}-${d[3]}　截至 ${m ? m[1] : ''}` : subtitle;
-      $('ob-time').textContent = `${stocks.length} 檔熱門股 · 整點後 10 分鐘自動更新`;
+      $('ob-time').textContent = `${stocks.length} 檔熱門股 · 10:10／11:10／12:10 自動更新`;
       render();
       loadPrices();
     } catch (e) {
@@ -90,15 +90,17 @@
     }
   }
 
-  // 排程：10:10、11:10、12:10 抓新資料（頁面開著時）；股價每 10 分鐘更新
+  // 資料於 10:10、11:10、12:10 由排程抓取並部署（可能延遲數分鐘）
+  // 網頁在每個時段開始後每 2 分鐘檢查一次，取得該時段資料即停止；股價每 10 分鐘更新
   const SLOTS = [10 * 60 + 10, 11 * 60 + 10, 12 * 60 + 10];
-  const slotOf = (mins) => SLOTS.filter((s) => mins >= s).pop() ?? -1;
-  let lastSlot = slotOf(tpe().mins), lastPx = Date.now();
+  const want = (mins) => { const s = SLOTS.filter((x) => mins >= x).pop(); return s ? String(Math.floor((s - 10) / 60)).padStart(2, '0') + ':00' : null; };
+  let lastCheck = 0, lastPx = Date.now();
   setInterval(() => {
     const t = tpe();
     if (t.dow < 1 || t.dow > 5) return;
-    const s = slotOf(t.mins);
-    if (s !== lastSlot) { lastSlot = s; load(); }
+    const w = want(t.mins);
+    const fresh = asof.startsWith(t.ymd) && w && asof.slice(10) >= w;   // asof = 日期 + 截至時間
+    if (w && !fresh && t.mins <= 13 * 60 + 30 && Date.now() - lastCheck > 2 * 60 * 1000) { lastCheck = Date.now(); load(); }
     else if (t.mins >= 540 && t.mins <= 13 * 60 + 35 && Date.now() - lastPx > 10 * 60 * 1000) { lastPx = Date.now(); loadPrices(); }
   }, 20 * 1000);
   document.addEventListener('visibilitychange', () => {

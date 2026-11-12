@@ -1,0 +1,74 @@
+name: 櫃買熱門股
+
+on:
+  schedule:
+    # 02:10 / 03:10 / 04:10 UTC = 台北 10:10 / 11:10 / 12:10；:25 為補抓（資料未更新則略過）
+    - cron: "10 2-4 * * 1-5"
+    - cron: "25 2-4 * * 1-5"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/broker.py", ".github/workflows/broker.yml"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: market-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: 抓取櫃買熱門股
+        env:
+          TZ: Asia/Taipei
+        run: python scripts/broker.py
+      - name: Commit 資料
+        id: commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/broker
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "broker: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
+            git pull --rebase -X theirs origin main || true
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: 建站（不重抓行情）
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          TZ: Asia/Taipei
+        run: python scripts/update.py --skip-fetch
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.commit.outputs.changed == 'true'
+        with:
+          path: _site
+
+  deploy:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
