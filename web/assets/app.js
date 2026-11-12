@@ -56,6 +56,28 @@
   candle.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.26 } });
   candle.setData(rows.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
 
+  // 加權指數均線（含盤中即時的今日 K 棒一起計算）
+  const MAS = [
+    { n: 5, color: '#e0a800' }, { n: 20, color: '#8b5cf6' }, { n: 60, color: '#0ea5e9' },
+    { n: 120, color: '#ec4899' }, { n: 240, color: '#64748b' },
+  ];
+  MAS.forEach((m) => {
+    m.series = ck.addLineSeries({ color: m.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false });
+  });
+  function setMAs() {
+    MAS.forEach((m) => {
+      let sum = 0;
+      m.vals = rows.map((r, i) => {
+        sum += r.close;
+        if (i >= m.n) sum -= rows[i - m.n].close;
+        return i >= m.n - 1 ? sum / m.n : null;
+      });
+      m.series.setData(rows.map((r, i) => m.vals[i] == null ? { time: r.time } : { time: r.time, value: m.vals[i] }));
+    });
+  }
+  setMAs();
+
   const vol = ck.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false });
   ck.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
   vol.setData(rows.map((r) => ({ time: r.time, value: yi(r.turn),
@@ -94,7 +116,8 @@
       + `<span class="muted">收</span><span class="${cls}">${fmt(r.close)} (${chg >= 0 ? '+' : ''}${fmt(chg)})</span>`
       + (r.live ? `<span class="opt"><span class="muted">盤中 ${r.qt}</span></span>`
         : `<span class="opt"><span class="muted">金額</span><span>${fmt(yi(r.turn), 0)} 億</span>`
-        + `<span class="muted">股數</span><span>${fmt(r.vol / 1e6, 0)} 百萬股</span></span>`);
+        + `<span class="muted">股數</span><span>${fmt(r.vol / 1e6, 0)} 百萬股</span></span>`)
+      + `<span class="ma-row">${MAS.map((m) => `<span style="color:${m.color}">MA${m.n} ${fmt(m.vals[i])}</span>`).join('')}</span>`;
     const p5 = pct(r.b5, r.t5), p20 = pct(r.b20, r.t20);
     lgB.innerHTML = `<b>${r.time}</b>`
       + `<span style="color:${C.b5}">● 高於5日均 ${r.b5 ?? '—'}/${r.t5 ?? '—'} (${fmt(p5, 1)}%)</span>`
@@ -215,6 +238,7 @@
 
       const r = ck.timeScale().getVisibleLogicalRange();
       candle.update({ time: row.time, open: row.open, high: row.high, low: row.low, close: row.close });
+      setMAs();
       vol.update({ time: row.time });
       setBreadth();
       if (r) ck.timeScale().setVisibleLogicalRange(r);

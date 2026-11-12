@@ -265,3 +265,5 @@ button.cal-day:hover { border-color: var(--b20); }
 #tab-cb .bk-layout { margin-bottom: 4px; }
 #tab-cb .bk-main.bk-box { padding: 4px 10px; }
 @media (max-width: 640px) { .cbh-q { width: 100%; margin-left: 0; } }
+.legend .ma-row { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 2px 12px; }
+@media (max-width: 760px) { .legend .ma-row { font-size: 10px; gap: 0 8px; } }
