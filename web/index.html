@@ -181,6 +181,35 @@
         <tbody id="cb-top"></tbody>
       </table>
     </div>
+    <div class="ct-head" style="margin-top:22px">
+      <h3 class="sec-title">突破轉換價紀錄</h3>
+      <span id="cbh-date" class="pill">—</span>
+      <input id="cbh-q" class="cbh-q" type="search" placeholder="搜尋股票代號或名稱，查歷次突破" autocomplete="off">
+    </div>
+    <div class="bk-layout">
+      <aside class="bk-cal ct-col">
+        <div class="cal-head">
+          <button id="cbh-prev" class="cal-nav" aria-label="上個月">‹</button>
+          <b id="cbh-title">—</b>
+          <button id="cbh-next" class="cal-nav" aria-label="下個月">›</button>
+        </div>
+        <div class="cal-grid cal-wk"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div id="cbh-days" class="cal-grid"></div>
+        <p class="cal-tip">有顏色的日期代表當天有股票突破轉換價（顏色越深檔數越多），點選查看。</p>
+      </aside>
+      <div class="bk-main ct-col bk-box">
+        <table class="bk-table">
+          <thead><tr>
+            <th>日期</th><th>可轉債</th><th>標的股票</th><th class="r">轉換價</th><th class="r hide-sm">前一日收盤</th>
+            <th class="r">當日收盤</th><th class="r hide-sm">漲跌幅</th><th class="r hide-sm">轉債參考價</th>
+          </tr></thead>
+          <tbody id="cbh-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="note">突破紀錄依每日收盤價計算（前一交易日標的收盤 &lt; 當日轉換價 ≤ 當日收盤），自 2026 年 1 月起，每日盤後更新；盤中曾突破但收盤跌回者不列入。</p>
+
     <p class="note">櫃買中心「每日轉(交)換公司債買賣斷交易行情表」等價成交，依成交張數排序，每日盤後更新；轉換價取自「轉換公司債資訊看板」。溢價率 = 收盤 ÷ 轉換價值 − 1。</p>
   </section>
 
@@ -202,6 +231,7 @@
 <script src="assets/hot.js"></script>
 <script src="assets/block.js"></script>
 <script src="assets/cb.js"></script>
+<script src="assets/cb_hist.js"></script>
 <script src="assets/broker.js"></script>
 </body>
 </html>

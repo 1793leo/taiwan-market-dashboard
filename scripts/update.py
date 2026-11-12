@@ -170,7 +170,7 @@ def main():
         update_shares()
         # 鉅額交易：至少保留 25 分鐘，避免被個股回補用完時間
         block.update(DATA, days, max(deadline, time.time() + 25 * 60), log)
-        cb.update(DATA, days, log)
+        cb.update(DATA, days, log, max(deadline, time.time() + 20 * 60))
     build.build(DATA, Path(args.site), start)
 
 

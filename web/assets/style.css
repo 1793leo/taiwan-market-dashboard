@@ -260,3 +260,8 @@ button.cal-day:hover { border-color: var(--b20); }
   #tab-otc-hot .star-legend { margin-left: 0; font-size: 11px; }
   .ob-grid { height: max(470px, calc(100svh - 250px)); }
 }
+.cbh-q { margin-left: auto; min-width: 0; width: 260px; max-width: 100%; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; font-size: 13px; }
+#tab-cb .bk-layout { margin-bottom: 4px; }
+#tab-cb .bk-main.bk-box { padding: 4px 10px; }
+@media (max-width: 640px) { .cbh-q { width: 100%; margin-left: 0; } }

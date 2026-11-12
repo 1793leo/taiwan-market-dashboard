@@ -5,7 +5,8 @@
   RSdrs001：轉換公司債資訊看板（含最新轉換價格、標的股價）→ 突破轉換價
 
 儲存：data/cb/quotes/YYYY-MM.csv（每日行情，等價成交）、data/cb/board.csv（最新資訊看板）
-網站：_site/data/cb.json
+      data/cb/breakouts.csv（每日突破轉換價紀錄，2026 年起）、data/cb/breakout_dates.csv（已計算日期）
+網站：_site/data/cb.json、_site/data/cb_hist.json
 
 突破轉換價：前一交易日標的收盤價 < 轉換價，且當日價格 ≥ 轉換價。
 標的股票 = 可轉債代號前 4 碼；若資訊看板的標的股價與該股收盤價不符（交換債等），不列入突破判斷。
@@ -25,6 +26,8 @@ import requests
 import twdata
 
 TOP_N = 30
+HIST_START = dt.date(2026, 1, 1)
+HIST_COLS = ["date", "c", "n", "s", "sn", "m", "conv", "prev", "p", "cb"]
 BASE = "https://www.tpex.org.tw/storage/bond_zone/tradeinfo/cb"
 
 
@@ -74,7 +77,7 @@ def fetch_board(day: dt.date) -> list[dict]:
 
 
 # ---------------------------------------------------------------- storage
-def update(data: Path, trading_days: list[dt.date], log=print):
+def update(data: Path, trading_days: list[dt.date], log=print, deadline: float | None = None):
     folder = data / "cb"
     (folder / "quotes").mkdir(parents=True, exist_ok=True)
     have = set()
@@ -116,20 +119,102 @@ def update(data: Path, trading_days: list[dt.date], log=print):
         pd.DataFrame([{**r, "date": d.isoformat()} for r in rows]).to_csv(bp, index=False)
         log(f"cb: 資訊看板 {d} {len(rows)} 檔")
         break
+    update_history(data, trading_days, log, deadline)
+
+
+def update_history(data: Path, trading_days: list[dt.date], log=print, deadline: float | None = None):
+    """逐日以當日資訊看板（當日轉換價）＋股價計算突破轉換價，寫入紀錄；可中斷續算"""
+    folder = data / "cb"
+    hp, dp = folder / "breakouts.csv", folder / "breakout_dates.csv"
+    done = set(pd.read_csv(dp)["date"]) if dp.exists() else set()
+    st = _stocks(data, since=f"{HIST_START.year - 1}-12")
+    sdates = sorted(st["date"].unique())
+    todo = [d for d in trading_days if d >= HIST_START and d.isoformat() not in done and d.isoformat() in sdates]
+    if todo:
+        log(f"cb: 突破紀錄需計算 {len(todo)} 天")
+    rows_all, marks = [], []
+    for k, d in enumerate(todo):
+        if deadline and time.time() > deadline:
+            log(f"cb: 達時間上限，剩 {len(todo) - k} 天下次續算")
+            break
+        try:
+            board = pd.DataFrame(fetch_board(d))
+        except twdata.NoData:
+            continue                       # 尚未公布，下次再算
+        except Exception as e:  # noqa: BLE001
+            log(f"cb: 資訊看板 {d} 失敗 {e}")
+            continue
+        br = compute_breakouts(board, d.isoformat(), st, sdates)
+        rows_all += [{**b, "date": d.isoformat()} for b in br]
+        marks.append({"date": d.isoformat(), "count": len(br)})
+        if (k + 1) % 20 == 0:
+            log(f"cb: 突破紀錄 {d} ({k + 1}/{len(todo)})")
+        time.sleep(1.5)
+    if marks:
+        new = pd.DataFrame(rows_all, columns=HIST_COLS)
+        if hp.exists():
+            old = pd.read_csv(hp, dtype={"c": str, "s": str})
+            new = pd.concat([old[~old["date"].isin([m["date"] for m in marks])], new])
+        new.sort_values(["date", "c"]).to_csv(hp, index=False)
+        idx = pd.concat([pd.read_csv(dp), pd.DataFrame(marks)]) if dp.exists() else pd.DataFrame(marks)
+        idx.drop_duplicates("date", keep="last").sort_values("date").to_csv(dp, index=False)
+        log(f"cb: 突破紀錄新增 {len(marks)} 天、{len(rows_all)} 筆")
 
 
 # ---------------------------------------------------------------- site
-def _stocks(data: Path) -> pd.DataFrame:
+def _stocks(data: Path, since: str | None = None) -> pd.DataFrame:
     frames = []
     for market, ex in (("twse", "tse"), ("tpex", "otc")):
-        for p in sorted((data / "stocks" / market).glob("*.csv"))[-2:]:
+        files = sorted((data / "stocks" / market).glob("*.csv"))
+        for p in (files[-2:] if since is None else [f for f in files if f.stem >= since]):
             f = pd.read_csv(p, dtype={"code": str}, usecols=["date", "code", "name", "close"])
             f["m"] = ex
             frames.append(f)
     return pd.concat(frames).dropna(subset=["close"]).drop_duplicates(["date", "code"], keep="last")
 
 
+def compute_breakouts(board: pd.DataFrame, d: str, st: pd.DataFrame, sdates: list[str]) -> list[dict]:
+    """前一交易日標的收盤 < 當日轉換價 ≤ 當日收盤；標的需與資訊看板股價相符（排除交換債等）"""
+    if d not in sdates or sdates.index(d) == 0:
+        return []
+    today = st[st["date"] == d].set_index("code")
+    prev = st[st["date"] == sdates[sdates.index(d) - 1]].set_index("code")["close"]
+    out = []
+    for r in board.itertuples():
+        conv = float(r.conv or 0)
+        if conv <= 0 or str(r.end_date or "").strip() not in ("", "nan"):
+            continue
+        s = str(r.code)[:4]
+        if s not in today.index or s not in prev.index or not r.stock_px:
+            continue
+        close = float(today.at[s, "close"])
+        if abs(float(r.stock_px) / close - 1) >= 0.02:
+            continue
+        pv = float(prev[s])
+        if pv < conv <= close:
+            out.append({"c": str(r.code), "n": r.name, "s": s, "sn": today.at[s, "name"], "m": today.at[s, "m"],
+                        "conv": conv, "prev": pv, "p": close, "cb": float(r.cb_ref) if r.cb_ref else None})
+    return sorted(out, key=lambda x: x["c"])
+
+
+def write_history(data: Path, site: Path):
+    hp, dp = data / "cb" / "breakouts.csv", data / "cb" / "breakout_dates.csv"
+    if not dp.exists():
+        return
+    dates = {r.date: int(r.count) for r in pd.read_csv(dp).itertuples()}
+    rows = {}
+    if hp.exists():
+        h = pd.read_csv(hp, dtype={"c": str, "s": str})
+        for d, g in h.groupby("date"):
+            rows[d] = [[r.c, r.n, r.s, r.sn, r.m, r.conv, r.prev, r.p, None if pd.isna(r.cb) else r.cb] for r in g.itertuples()]
+    (site / "data" / "cb_hist.json").write_text(json.dumps({"dates": dates, "rows": rows}, ensure_ascii=False,
+                                                           separators=(",", ":")), encoding="utf-8")
+    print(f"cb 突破紀錄：{len(dates)} 天、{sum(dates.values())} 筆")
+
+
 def write(data: Path, site: Path):
+    (site / "data").mkdir(parents=True, exist_ok=True)
+    write_history(data, site)
     folder = data / "cb"
     bp = folder / "board.csv"
     qfiles = sorted((folder / "quotes").glob("*.csv"))
@@ -168,11 +253,9 @@ def write(data: Path, site: Path):
     ok["close"] = ok["s"].map(today["close"]).astype(float)
     ok["prev"] = ok["s"].map(prev["close"]).astype(float) if prev is not None else float("nan")
 
-    # 盤後：基準日突破
-    br = ok[(ok["prev"] < ok["conv"]) & (ok["close"] >= ok["conv"])]
-    breakout = [{"c": r.code, "n": r.name, "s": r.s, "sn": r.sname, "m": r.m, "conv": r.conv,
-                 "prev": r.prev, "p": r.close, "cb": float(r.cb_ref) if r.cb_ref else None}
-                for r in br.sort_values("code").itertuples()]
+    # 盤後：基準日突破（與歷史紀錄同一套算法）
+    raw = pd.read_csv(bp, dtype={"code": str}).fillna("")
+    breakout = compute_breakouts(raw, bdate, st, sdates)
 
     # 盤中監看名單：基準日收盤仍低於轉換價者（下一個交易日若突破即列出）
     w = ok[ok["close"] < ok["conv"]]
