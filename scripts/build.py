@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -98,6 +99,12 @@ def build(data: Path, site: Path, start: dt.date | None = None):
             shutil.copytree(src, dst, dirs_exist_ok=True)
         elif src.exists():
             shutil.copy2(src, dst)
+
+    # 版本參數：每次部署後瀏覽器都會載入最新的 js/css，不會卡在舊快取
+    stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
+    html = site / "index.html"
+    html.write_text(re.sub(r'(assets/[\w.-]+\.(?:js|css))"', rf'\1?v={stamp}"', html.read_text(encoding="utf-8")),
+                    encoding="utf-8")
     print(f"site built: {site}  breadth days={len(br)}  taiex days={len(tx)}")
 
 

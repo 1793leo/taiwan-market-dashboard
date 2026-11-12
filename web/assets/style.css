@@ -118,5 +118,12 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; }
   .hot-row { grid-template-columns: 22px minmax(80px, 1.4fr) 1fr 1fr 1fr; gap: 6px; }
   .hide-sm { display: none; }
 }
-.hot-row .star { color: #f5a524; margin-right: 3px; }
-.hot-list .hot-row.new { background: color-mix(in srgb, #f5a524 7%, transparent); }
+.star { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; height: 20px;
+  border-radius: 50%; background: #f5a524; color: #fff; font-size: 13px; line-height: 1; margin-right: 6px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #f5a524 25%, transparent); }
+.hot-row .nm b { display: flex; align-items: center; min-width: 0; }
+.hot-row .nm b .txt { overflow: hidden; text-overflow: ellipsis; }
+.hot-list .hot-row.new { background: color-mix(in srgb, #f5a524 16%, transparent); box-shadow: inset 4px 0 0 #f5a524; }
+.hot-list .hot-row.new .nm b .txt { font-weight: 700; }
+.star-legend { margin-left: auto; display: inline-flex; align-items: center; font-size: 12px; color: var(--muted); }
+.star-legend .star { width: 18px; height: 18px; font-size: 11px; }

@@ -108,7 +108,7 @@
 
     $('hot-list').innerHTML = items.map((i, k) => `<li class="hot-row${isNew(i) ? ' new' : ''}">
       <span class="rk">${k + 1}</span>
-      <span class="nm"><b>${isNew(i) ? '<span class="star" title="今日新上榜">★</span>' : ''}${i.n}</b><em>${i.c}<i class="mk ${i.m}">${i.m === 'tse' ? '市' : '櫃'}</i></em></span>
+      <span class="nm"><b>${isNew(i) ? '<span class="star" title="今日新上榜">★</span>' : ''}<span class="txt">${i.n}</span></b><em>${i.c}<i class="mk ${i.m}">${i.m === 'tse' ? '市' : '櫃'}</i></em></span>
       <span class="r mono ${cls(i.pct)}">${fmtPx(i.p)}</span>
       <span class="r mono ${cls(i.pct)}">${sgn(i.pct)}%</span>
       <span class="r mono b">${fmt(yi(i.tv), 1)}</span>
