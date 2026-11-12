@@ -267,3 +267,7 @@ button.cal-day:hover { border-color: var(--b20); }
 @media (max-width: 640px) { .cbh-q { width: 100%; margin-left: 0; } }
 .legend .ma-row { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 2px 12px; }
 @media (max-width: 760px) { .legend .ma-row { font-size: 10px; gap: 0 8px; } }
+/* 圖例改放在圖表上方獨立一列，不再覆蓋 K 線 */
+.chartbox .legend { position: static; background: none; padding: 8px 12px 6px; border-bottom: 1px solid var(--line);
+  border-radius: 0; min-height: 44px; align-content: flex-start; }
+#lg-b { min-height: 0; }
