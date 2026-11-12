@@ -24,6 +24,7 @@
     <button class="tab" data-tab="block" role="tab">鉅額交易</button>
     <button class="tab" data-tab="cb" role="tab">可轉債</button>
     <button class="tab" data-tab="otc-hot" role="tab">櫃買熱門股</button>
+    <button class="tab" data-tab="post" role="tab">盤後交易</button>
   </nav>
 </header>
 
@@ -223,6 +224,29 @@
     <div id="ob-modal" class="ob-modal" hidden><div class="ob-dialog"><button class="ob-close" aria-label="關閉">×</button><div id="ob-modal-body"></div></div></div>
     <p class="note">資料來源：證券櫃檯買賣中心「熱門股證券商進出排行（等價整股）」，每檔列出進出量前 10 大券商（單位：張）。櫃買中心於 10:00、11:00、12:00 更新，本頁於整點後約 10 分鐘自動更新（排程偶有數分鐘延遲）。外資分點買賣超 = 前 10 大券商中外資券商的（總買量 − 總賣量）合計，未進入前 10 大的外資券商不計入。股價為即時報價。</p>
   </section>
+
+  <section id="tab-post" class="panel">
+    <div class="ct-head">
+      <span id="pt-date" class="pill">載入中…</span>
+      <select id="pt-sel" class="pt-sel" aria-label="選擇日期"></select>
+    </div>
+    <div class="cards pt-cards">
+      <div class="card"><div class="k">委買未成交金額合計</div><div class="v up" id="pt-bt">—</div><div class="d">上市櫃普通股</div></div>
+      <div class="card"><div class="k">委賣未成交金額合計</div><div class="v down" id="pt-at">—</div><div class="d">上市櫃普通股</div></div>
+      <div class="card"><div class="k">買賣力道</div><div class="v" id="pt-ratio">—</div><div class="d">委買 ÷ 委賣 未成交金額</div></div>
+    </div>
+    <div class="ct-cols">
+      <div class="ct-col">
+        <div class="ct-colhead"><h3 class="up">委買未成交 前 30 名</h3><span class="muted">張數 × 成交價</span></div>
+        <table class="bk-table pt-table"><thead><tr><th>#</th><th>股票</th><th class="r">價格</th><th class="r">未成交(張)</th><th class="r">金額(萬)</th></tr></thead><tbody id="pt-buy"></tbody></table>
+      </div>
+      <div class="ct-col">
+        <div class="ct-colhead"><h3 class="down">委賣未成交 前 30 名</h3><span class="muted">張數 × 成交價</span></div>
+        <table class="bk-table pt-table"><thead><tr><th>#</th><th>股票</th><th class="r">價格</th><th class="r">未成交(張)</th><th class="r">金額(萬)</th></tr></thead><tbody id="pt-sell"></tbody></table>
+      </div>
+    </div>
+    <p class="note">資料來源：臺灣證券交易所「盤後定價交易」（最後揭示買量／賣量）、證券櫃檯買賣中心「盤後定價行情」（委買／委賣未成交張數），僅列普通股（排除 ETF、權證等）。金額 = 未成交張數 × 1,000 股 × 成交價；當日盤後無成交者以收盤價計算並標示「未成交」。每個交易日 16:00 更新。</p>
+  </section>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -233,5 +257,6 @@
 <script src="assets/cb.js"></script>
 <script src="assets/cb_hist.js"></script>
 <script src="assets/broker.js"></script>
+<script src="assets/post.js"></script>
 </body>
 </html>
