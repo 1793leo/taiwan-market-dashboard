@@ -47,6 +47,12 @@ def build_hot(data: Path) -> dict:
     cur["pct"] = (cur["close"] / cur["y"] - 1) * 100
     top = cur.sort_values("tv", ascending=False).head(TOP_N)
 
+    # 前一交易日前 30 名（用來標註「今日新上榜」）
+    prev_top = []
+    if len(dates) > 1:
+        pday = df[df["date"] == dates[-2]].drop_duplicates("code", keep="last")
+        prev_top = pday.sort_values("tv", ascending=False).head(TOP_N)["code"].tolist()
+
     pool = (df[df["date"].isin(recent)].groupby("code")["tv"].max()
             .sort_values(ascending=False).head(POOL_N))
     names = df.sort_values("date").groupby("code")["name"].last()
@@ -58,6 +64,7 @@ def build_hot(data: Path) -> dict:
             "pct": None if pd.isna(r.pct) else round(float(r.pct), 2),
             "v": int(round((r.volume or 0) / 1000)), "tv": float(r.tv),
         } for r in top.itertuples()],
+        "prev": prev_top,
         "pool": [{"c": c, "n": names[c], "m": latest_m[c]} for c in pool.index],
     }
     print(f"hot {last}: 前{TOP_N}大合計 {top['tv'].sum() / 1e8:,.0f} 億 / 候選池 {len(out['pool'])} 檔"

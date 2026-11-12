@@ -29,6 +29,8 @@
   const inSession = () => { const t = tpe(); return t.mins >= 540 && t.mins <= 13 * 60 + 30; };
 
   const closeState = () => ({ mode: 'close', date: base.date, items: base.top });
+  // 比較基準：盤中 → 最新盤後資料（即昨日）前 30 名；盤後 → 前一交易日前 30 名
+  const prevSet = (mode) => new Set(mode === 'live' ? base.top.map((i) => i.c) : (base.prev || []));
 
   // ---------- 盤中即時
   const lastPx = {};
@@ -73,7 +75,8 @@
   // ---------- render
   function render(s, label) {
     const items = s.items;
-    const max = Math.max(...items.map((i) => i.tv), 1);
+    const prev = prevSet(s.mode);
+    const isNew = (i) => prev.size > 0 && !prev.has(i.c);
     const sum = items.reduce((a, i) => a + i.tv, 0);
     const up = items.filter((i) => i.pct > 0).length, dn = items.filter((i) => i.pct < 0).length;
     const tseN = items.filter((i) => i.m === 'tse').length;
@@ -96,17 +99,18 @@
     $('hot-sumsub').textContent = s.mode === 'live' ? '盤中估算' : '官方成交金額';
     $('hot-ud').innerHTML = `<span class="up">${up}</span> / <span class="down">${dn}</span> / ${items.length - up - dn}`;
     $('hot-mk').textContent = `${tseN} / ${items.length - tseN}`;
+    const newN = items.filter(isNew).length;
+    $('hot-sumsub').textContent += ` · ★ 新上榜 ${newN} 檔`;
     if (items[0]) {
       $('hot-first').textContent = items[0].n;
       $('hot-firstsub').innerHTML = `${fmt(yi(items[0].tv), 0)} 億 · <span class="${cls(items[0].pct)}">${sgn(items[0].pct)}%</span>`;
     }
 
-    $('hot-list').innerHTML = items.map((i, k) => `<li class="hot-row">
+    $('hot-list').innerHTML = items.map((i, k) => `<li class="hot-row${isNew(i) ? ' new' : ''}">
       <span class="rk">${k + 1}</span>
-      <span class="nm"><b>${i.n}</b><em>${i.c}<i class="mk ${i.m}">${i.m === 'tse' ? '市' : '櫃'}</i></em></span>
+      <span class="nm"><b>${isNew(i) ? '<span class="star" title="今日新上榜">★</span>' : ''}${i.n}</b><em>${i.c}<i class="mk ${i.m}">${i.m === 'tse' ? '市' : '櫃'}</i></em></span>
       <span class="r mono ${cls(i.pct)}">${fmtPx(i.p)}</span>
       <span class="r mono ${cls(i.pct)}">${sgn(i.pct)}%</span>
-      <span class="bar ${cls(i.pct) || 'flat'}"><span style="width:${Math.max(2, i.tv / max * 100)}%"></span></span>
       <span class="r mono b">${fmt(yi(i.tv), 1)}</span>
       <span class="r mono hide-sm">${fmt(i.v, 0)}</span>
     </li>`).join('');
