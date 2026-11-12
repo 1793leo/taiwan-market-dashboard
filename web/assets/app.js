@@ -86,19 +86,20 @@
       + `<span class="muted">高</span><span class="${cls}">${fmt(r.high)}</span>`
       + `<span class="muted">低</span><span class="${cls}">${fmt(r.low)}</span>`
       + `<span class="muted">收</span><span class="${cls}">${fmt(r.close)} (${chg >= 0 ? '+' : ''}${fmt(chg)})</span>`
-      + `<span class="opt"><span class="muted">金額</span><span>${fmt(yi(r.turn), 0)} 億</span>`
-      + `<span class="muted">股數</span><span>${fmt(r.vol / 1e6, 0)} 百萬股</span></span>`;
+      + (r.live ? `<span class="opt"><span class="muted">盤中 ${r.qt}</span></span>`
+        : `<span class="opt"><span class="muted">金額</span><span>${fmt(yi(r.turn), 0)} 億</span>`
+        + `<span class="muted">股數</span><span>${fmt(r.vol / 1e6, 0)} 百萬股</span></span>`);
     const p5 = pct(r.b5, r.t5), p20 = pct(r.b20, r.t20);
     lgB.innerHTML = `<b>${r.time}</b>`
       + `<span style="color:${C.b5}">● 高於5日均 ${r.b5 ?? '—'}/${r.t5 ?? '—'} (${fmt(p5, 1)}%)</span>`
       + `<span style="color:${C.b20}">● 高於20日均 ${r.b20 ?? '—'}/${r.t20 ?? '—'} (${fmt(p20, 1)}%)</span>`;
   }
-  const last = rows.length - 1;
-  legend(last);
+  const lastIdx = () => rows.length - 1;
+  legend(lastIdx());
 
   function onMove(src, dst, dstSeries, val) {
     src.subscribeCrosshairMove((p) => {
-      if (!p.time) { dst.clearCrosshairPosition(); legend(last); return; }
+      if (!p.time) { dst.clearCrosshairPosition(); legend(lastIdx()); return; }
       const i = byTime.get(p.time); legend(i);
       const v = val(rows[i]);
       if (v != null) dst.setCrosshairPosition(v, p.time, dstSeries); else dst.clearCrosshairPosition();
@@ -127,18 +128,105 @@
   setRange(126);
 
   // ---------- cards (最新一筆有寬度資料的日子)
+  function renderCards() {
+  const last = lastIdx();
   const L = rows[last], P = rows[last - 1];
   const chg = P ? L.close - P.close : 0, chgp = P ? chg / P.close * 100 : 0;
   const cc = document.getElementById('c-close');
   cc.textContent = fmt(L.close); cc.className = 'v ' + (chg >= 0 ? 'up' : 'down');
   const cg = document.getElementById('c-chg');
   cg.textContent = `${chg >= 0 ? '▲' : '▼'} ${fmt(Math.abs(chg))} (${fmt(chgp)}%)`; cg.className = 'd ' + (chg >= 0 ? 'up' : 'down');
-  document.getElementById('c-turn').textContent = fmt(yi(L.turn), 0) + ' 億';
-  document.getElementById('c-date').textContent = L.time;
+  document.getElementById('c-turn').textContent = L.live ? '盤中' : fmt(yi(L.turn), 0) + ' 億';
+  document.getElementById('c-date').textContent = L.live ? `${L.time} · 收盤後公布` : L.time;
   let k = last; while (k > 0 && rows[k].b5 == null) k--;
   const R = rows[k];
   document.getElementById('c-b5').textContent = R.b5 ?? '—';
   document.getElementById('c-b5p').textContent = `/ ${R.t5 ?? '—'} 家 · ${fmt(pct(R.b5, R.t5), 1)}%` + (k !== last ? ` (${R.time})` : '');
   document.getElementById('c-b20').textContent = R.b20 ?? '—';
   document.getElementById('c-b20p').textContent = `/ ${R.t20 ?? '—'} 家 · ${fmt(pct(R.b20, R.t20), 1)}%` + (k !== last ? ` (${R.time})` : '');
+  }
+  renderCards();
+
+  // ---------- 盤中即時（每 10 分鐘）
+  let cfg = { quoteProxy: '' };
+  try { cfg = { ...cfg, ...(await (await fetch('config.json', { cache: 'no-cache' })).json()) }; } catch (e) { /* 無設定 */ }
+  const LIVE_MS = 10 * 60 * 1000;
+  const tpe = () => {
+    const d = new Date(Date.now() + 8 * 3600e3);
+    return { dow: d.getUTCDay(), mins: d.getUTCHours() * 60 + d.getUTCMinutes(), ymd: d.toISOString().slice(0, 10) };
+  };
+  const histLast = T.date[T.date.length - 1];
+  const num = (v) => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
+  const first = (s) => num(String(s || '').split('_')[0]);
+  const status = (html, cls, sub) => {
+    const st = document.getElementById('ma-status'); st.className = 'pill' + (cls ? ' ' + cls : ''); st.innerHTML = html;
+    document.getElementById('ma-time').textContent = sub || '';
+  };
+  status(`盤後 · ${histLast}`);
+
+  let TH = null, lastPoll = 0, busy = false, liveDone = false;
+  const liveWindow = () => { const t = tpe(); return t.dow >= 1 && t.dow <= 5 && t.mins >= 540 && histLast < t.ymd; };
+
+  async function pollLive(force) {
+    if (busy || liveDone || !cfg.quoteProxy || !liveWindow()) return;
+    if (!force && (document.hidden || Date.now() - lastPoll < LIVE_MS - 5000)) return;
+    busy = true;
+    try {
+      if (!TH) TH = await (await fetch('data/ma_live.json', { cache: 'no-cache' })).json();
+      const proxy = cfg.quoteProxy.replace(/\/$/, '');
+      const calls = [];
+      for (const [ex, key] of [['tse', 'codes'], ['otc', 'otc']]) {
+        const cs = TH[ex].map((x) => x[0]);
+        for (let i = 0; i < cs.length; i += 300) calls.push(`${proxy}/?${key}=${cs.slice(i, i + 300).join(',')}`);
+      }
+      const res = await Promise.all(calls.map((u) => fetch(u, { cache: 'no-store' }).then((r) => r.json())));
+      const quotes = new Map();
+      let ix = null;
+      res.forEach((j) => {
+        if (j.error) throw new Error(j.error);
+        j.quotes.forEach((q) => { if (q.c === 't00') ix = q; else quotes.set((q.ex || 'tse') + q.c, q); });
+      });
+      const t = tpe();
+      if (!ix || ix.d !== t.ymd.replace(/-/g, '')) { liveDone = true; status(`今日休市 · 顯示 ${histLast} 收盤`); return; }
+
+      let a5 = 0, n5 = 0, a20 = 0, n20 = 0;
+      for (const ex of ['tse', 'otc']) {
+        for (const [c, t5, t20] of TH[ex]) {
+          const q = quotes.get(ex + c);
+          if (!q || !num(q.v)) continue;                       // 今日尚未成交者不列入（與盤後口徑一致）
+          const b = first(q.b), a = first(q.a);
+          const p = num(q.z) ?? (b && a ? (b + a) / 2 : b ?? a);
+          if (!p) continue;
+          if (t5 != null) { n5++; if (p > t5) a5++; }
+          if (t20 != null) { n20++; if (p > t20) a20++; }
+        }
+      }
+      const z = num(ix.z) ?? num(ix.y);
+      const row = { time: t.ymd, open: num(ix.o) ?? z, high: num(ix.h) ?? z, low: num(ix.l) ?? z, close: z,
+        vol: null, turn: null, b5: a5, t5: n5, b20: a20, t20: n20, live: true, qt: ix.t };
+      if (rows[rows.length - 1].time === row.time) rows[rows.length - 1] = row; else rows.push(row);
+      byTime.set(row.time, rows.length - 1);
+
+      const r = ck.timeScale().getVisibleLogicalRange();
+      candle.update({ time: row.time, open: row.open, high: row.high, low: row.low, close: row.close });
+      vol.update({ time: row.time });
+      setBreadth();
+      if (r) ck.timeScale().setVisibleLogicalRange(r);
+      legend(lastIdx());
+      renderCards();
+      lastPoll = Date.now();
+      const after = t.mins > 13 * 60 + 30;
+      if (after && ix.t >= '13:30') liveDone = true;   // 已取得收盤價，等待盤後官方資料
+      status(after ? '今日收盤（即時報價）' : '<span class="dot"></span>盤中即時', 'live',
+        `報價時間 ${ix.t} · 每 10 分鐘更新` + (after ? ' · 15:40 後換成官方盤後資料' : ''));
+    } catch (e) {
+      document.getElementById('ma-time').textContent = '即時報價暫時無法取得（' + e.message + '），10 分鐘後重試';
+      lastPoll = Date.now();
+    } finally {
+      busy = false;
+    }
+  }
+  pollLive(true);
+  setInterval(() => pollLive(false), 30 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollLive(false); });
 })();

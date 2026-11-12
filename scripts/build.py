@@ -56,6 +56,30 @@ def compute_breadth(stocks: pd.DataFrame) -> pd.DataFrame:
     return agg.sort_values("date")
 
 
+def write_ma_live(stocks: pd.DataFrame, site: Path):
+    """
+    盤中即時均線風向用的門檻值。
+    收盤價 p 高於「含今日的 N 日均價」⇔ p > (前 N-1 個有成交日收盤價的平均)
+    因此每檔只需前端拿即時價和 t5（前 4 日均）、t20（前 19 日均）比較。
+    """
+    last = stocks["date"].max()
+    df = stocks.dropna(subset=["close"]).sort_values(["code", "date"])
+    recent = sorted(df["date"].unique())[-20:]                  # 近 20 個交易日有成交過的都要納入
+    df = df[df["code"].isin(df.loc[df["date"].isin(recent), "code"])]
+    tail = df.groupby("code").tail(19)
+    g = tail.groupby("code")
+    n = g["close"].count()
+    t20 = g["close"].mean().where(n >= 19)
+    t5 = tail.groupby("code").tail(4).groupby("code")["close"].mean().where(n >= 4)
+    mkt = df.groupby("code")["market"].last().map({"twse": "tse", "tpex": "otc"})
+    out = {"date": last, "tse": [], "otc": []}
+    for code in mkt.index:
+        a, b = t5.get(code), t20.get(code)
+        out[mkt[code]].append([code, None if pd.isna(a) else round(float(a), 6), None if pd.isna(b) else round(float(b), 6)])
+    (site / "data" / "ma_live.json").write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
+    print(f"ma_live {last}: 上市 {len(out['tse'])} 上櫃 {len(out['otc'])}")
+
+
 def build(data: Path, site: Path, start: dt.date | None = None):
     tx = pd.read_csv(data / "taiex.csv")
     stocks = load_stocks(data)
@@ -90,6 +114,7 @@ def build(data: Path, site: Path, start: dt.date | None = None):
             payload["breadth"][k] = [int(x) for x in v]
     (site / "data" / "dashboard.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+    write_ma_live(stocks, site)
     contrib.write(data, site)
     hot.write(data, site)
     block.write(data, site)
