@@ -80,6 +80,9 @@ def update_taiex(start: dt.date, end: dt.date) -> pd.DataFrame:
         new = pd.DataFrame(rows)
         df = pd.concat([df, new]) if len(df) else new
         df = df.drop_duplicates("date", keep="last").sort_values("date")
+    if len(df):
+        # 盤中執行時證交所會回傳「今日尚未收盤」的指數；沒有成交金額（FMTQIK 收盤後才公布）者一律不存
+        df = df[~((df["date"] >= today_tpe()) & df["turnover"].isna())]
         DATA.mkdir(parents=True, exist_ok=True)
         df.to_csv(TAIEX_CSV, index=False)
     return df

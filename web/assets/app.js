@@ -15,6 +15,12 @@
   document.getElementById('updated').textContent = '更新於 ' + D.updated;
 
   const T = D.taiex, B = D.breadth;
+  // 防護：若最後一筆是今日但還沒有成交金額（盤中未收盤資料），視為尚未收盤，不列入歷史
+  {
+    const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+    const n = T.date.length - 1;
+    if (n >= 0 && T.date[n] >= today && !T.turnover[n]) for (const k of Object.keys(T)) T[k].pop();
+  }
   const bIdx = new Map(B.date.map((d, i) => [d, i]));
   const rows = T.date.map((d, i) => {
     const j = bIdx.get(d);

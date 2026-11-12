@@ -83,6 +83,7 @@ def write_ma_live(stocks: pd.DataFrame, site: Path):
 
 def build(data: Path, site: Path, start: dt.date | None = None):
     tx = pd.read_csv(data / "taiex.csv")
+    tx = tx[tx["turnover"].notna()]          # 排除盤中未收盤的當日指數（無成交金額）
     stocks = load_stocks(data)
     br = compute_breadth(stocks)
 
