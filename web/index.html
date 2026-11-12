@@ -229,7 +229,9 @@
     <div class="ct-head">
       <span id="pt-date" class="pill">載入中…</span>
       <select id="pt-sel" class="pt-sel" aria-label="選擇日期"></select>
+      <div class="seg pt-sub" id="pt-sub"><button data-s="rank" class="on">未成交排行</button><button data-s="limit">漲停板</button></div>
     </div>
+    <div id="pt-rank">
     <div class="cards pt-cards">
       <div class="card"><div class="k">委買未成交金額合計</div><div class="v up" id="pt-bt">—</div><div class="d">上市櫃普通股</div></div>
       <div class="card"><div class="k">委賣未成交金額合計</div><div class="v down" id="pt-at">—</div><div class="d">上市櫃普通股</div></div>
@@ -244,6 +246,22 @@
         <div class="ct-colhead"><h3 class="down">委賣未成交 前 30 名</h3><span class="muted">張數 × 成交價</span></div>
         <table class="bk-table pt-table"><thead><tr><th>#</th><th>股票</th><th class="r">價格</th><th class="r">未成交(張)</th><th class="r">金額(萬)</th></tr></thead><tbody id="pt-sell"></tbody></table>
       </div>
+    </div>
+    <p class="note">未成交排行已排除當日收盤漲停的股票（請見「漲停板」）。</p>
+    </div>
+    <div id="pt-limit" hidden>
+      <div class="cards pt-cards">
+        <div class="card"><div class="k">漲停家數</div><div class="v up" id="lu-n">—</div><div class="d" id="lu-nsub">—</div></div>
+        <div class="card"><div class="k">盤後委買未成交合計</div><div class="v up" id="lu-bv">—</div><div class="d">漲停股排隊買盤</div></div>
+        <div class="card"><div class="k">排隊最多</div><div class="v" id="lu-top">—</div><div class="d" id="lu-topsub">—</div></div>
+      </div>
+      <div class="ct-col bk-box">
+        <table class="bk-table"><thead><tr>
+          <th>#</th><th>股票</th><th class="r">收盤</th><th class="r">漲幅</th>
+          <th class="r">委買未成交(張)</th><th class="r">委買金額(萬)</th><th class="r hide-sm">委賣未成交(張)</th><th class="r hide-sm">盤後成交(張)</th>
+        </tr></thead><tbody id="lu-body"></tbody></table>
+      </div>
+      <p class="note">漲停判定：收盤價等於當日漲停價（參考價 × 1.1 依升降單位取整，參考價已含除權息調整）。依盤後定價交易委買未成交金額排序，代表收盤後仍排隊等著買進的資金。</p>
     </div>
     <p class="note">資料來源：臺灣證券交易所「盤後定價交易」（最後揭示買量／賣量）、證券櫃檯買賣中心「盤後定價行情」（委買／委賣未成交張數），僅列普通股（排除 ETF、權證等）。金額 = 未成交張數 × 1,000 股 × 成交價；當日盤後無成交者以收盤價計算並標示「未成交」。每個交易日 16:00 更新。</p>
   </section>

@@ -279,3 +279,6 @@ button.cal-day:hover { border-color: var(--b20); }
 .pt-table td em.sub { display: block; }
 .ct-colhead .muted { color: var(--muted); font-size: 11px; font-weight: 400; }
 @media (max-width: 640px) { .pt-cards { grid-template-columns: 1fr 1fr; } .pt-cards .card:last-child { grid-column: 1 / -1; } }
+.pt-sub { margin-left: auto; }
+#pt-limit .bk-table td.up { color: var(--up); }
+@media (max-width: 640px) { .pt-sub { margin-left: 0; } }

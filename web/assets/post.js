@@ -34,7 +34,28 @@
     $('pt-ratio').className = 'v ' + (ratio > 1 ? 'up' : ratio < 1 ? 'down' : '');
     $('pt-buy').innerHTML = rows(j.buy);
     $('pt-sell').innerHTML = rows(j.sell);
+
+    // 漲停板
+    const L = j.limit || [];
+    const tse = L.filter((r) => r.m === 'tse').length;
+    $('lu-n').textContent = `${L.length} 家`;
+    $('lu-nsub').textContent = `上市 ${tse} · 上櫃 ${L.length - tse}`;
+    $('lu-bv').textContent = yi(L.reduce((a, r) => a + r.bv, 0));
+    $('lu-top').textContent = L[0] ? L[0].n : '—';
+    $('lu-topsub').textContent = L[0] ? `${fmt(L[0].bid)} 張 · ${yi(L[0].bv)}` : '—';
+    $('lu-body').innerHTML = L.map((r, k) => `<tr>
+      <td class="muted mono">${k + 1}</td>
+      <td><b>${r.n}</b><em class="sub">${r.c}${r.m === 'otc' ? ' · 櫃' : ''}</em></td>
+      <td class="r mono up b">${fmt(r.p, 2)}</td><td class="r mono up">+${fmt(r.pct, 2)}%</td>
+      <td class="r mono">${fmt(r.bid)}</td><td class="r mono b">${fmt(r.bv / 1e4)}</td>
+      <td class="r mono hide-sm">${fmt(r.ask)}</td><td class="r mono hide-sm">${fmt(r.vol)}</td>
+    </tr>`).join('') || '<tr><td colspan="8" class="none">當日沒有漲停的普通股</td></tr>';
   }
+  document.querySelectorAll('#pt-sub button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#pt-sub button').forEach((x) => x.classList.toggle('on', x === b));
+    $('pt-rank').hidden = b.dataset.s !== 'rank';
+    $('pt-limit').hidden = b.dataset.s !== 'limit';
+  }));
   sel.addEventListener('change', () => show(sel.value));
   show(dates[dates.length - 1]);
 })();

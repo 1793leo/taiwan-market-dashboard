@@ -170,6 +170,7 @@ def _parse_tpex_tables(j: dict) -> list[dict]:
     io, ih, il, icl = (_find_col(f, k) for k in ("開盤", "最高", "最低", "收盤"))
     iv = _find_col(f, "成交股數", "成交量")
     itv = _find_col(f, "成交金額")
+    ich = _find_col(f, "漲跌")
     if None in (ic, io, ih, il, icl, iv):
         raise RuntimeError(f"TPEx 欄位格式改變: {f}")
     return [{
@@ -177,6 +178,7 @@ def _parse_tpex_tables(j: dict) -> list[dict]:
         "open": num(d[io]), "high": num(d[ih]), "low": num(d[il]),
         "close": num(d[icl]), "volume": num(d[iv]),
         "turnover": num(d[itv]) if itv is not None else None,
+        "change": num(str(d[ich]).replace(" ", "")) if ich is not None else None,
     } for d in tbl["data"]]
 
 
@@ -190,6 +192,7 @@ def _parse_tpex_legacy(j: dict) -> list[dict]:
         "open": num(d[4]), "high": num(d[5]), "low": num(d[6]),
         "close": num(d[2]), "volume": num(d[8]),
         "turnover": num(d[9]) if len(d) > 9 else None,
+        "change": num(str(d[3]).replace(" ", "")),
     } for d in data]
 
 
