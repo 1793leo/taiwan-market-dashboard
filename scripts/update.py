@@ -2,7 +2,8 @@
 增量更新：
   1. 更新加權指數 (data/taiex.csv)
   2. 以指數交易日為基準，補齊上市/上櫃普通股日 K (data/stocks/{twse,tpex}/YYYY-MM.csv)
-  3. 計算市場均線風向、貢獻點數、成交重心股並輸出網站資料 (build.py)
+  3. 抓取鉅額交易（上市＋上櫃，2026 年起）
+  4. 計算市場均線風向、貢獻點數、成交重心股並輸出網站資料 (build.py)
 
 第一次執行會自動回補 --years 年的資料；中途因時間上限中斷，下次執行會從缺口續抓。
 用法: python scripts/update.py --years 3 --budget 300
@@ -21,6 +22,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import twdata  # noqa: E402
 import build  # noqa: E402
+import block  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -165,6 +167,8 @@ def main():
         log("抓取結果:", report)
         ensure_latest_change(days[-1])
         update_shares()
+        # 鉅額交易：至少保留 25 分鐘，避免被個股回補用完時間
+        block.update(DATA, days, max(deadline, time.time() + 25 * 60), log)
     build.build(DATA, Path(args.site), start)
 
 

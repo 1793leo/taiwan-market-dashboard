@@ -127,3 +127,67 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; }
 .hot-list .hot-row.new .nm b .txt { font-weight: 700; }
 .star-legend { margin-left: auto; display: inline-flex; align-items: center; font-size: 12px; color: var(--muted); }
 .star-legend .star { width: 18px; height: 18px; font-size: 11px; }
+
+/* ---------- 鉅額交易 */
+.bk-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+.bk-main { min-width: 0; }
+.bk-cal { position: sticky; top: 12px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-head b { font-size: 15px; }
+.cal-nav { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--text);
+  font-size: 18px; cursor: pointer; line-height: 1; }
+.cal-nav:disabled { opacity: .3; cursor: default; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wk span { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 4px; }
+.cal-day { aspect-ratio: 1 / 1.05; border-radius: 8px; border: 1px solid transparent; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; font: inherit; color: var(--text); padding: 0;
+  background: color-mix(in srgb, var(--b20) calc(var(--heat, 0) * 100%), transparent); }
+button.cal-day { cursor: pointer; border-color: var(--line); }
+button.cal-day:hover { border-color: var(--b20); }
+.cal-day b { font: 500 13px "JetBrains Mono", monospace; }
+.cal-day i { font: normal 10px "JetBrains Mono", monospace; color: var(--muted); }
+.cal-day.off { color: color-mix(in srgb, var(--muted) 45%, transparent); }
+.cal-day.zero i { opacity: .6; }
+.cal-day.sel { border-color: var(--b20); box-shadow: 0 0 0 2px var(--b20); }
+.cal-tip { font-size: 11px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
+.bk-cards { grid-template-columns: repeat(3, 1fr); }
+#bk-max { font-family: "Noto Sans TC", sans-serif; font-weight: 700; }
+.bk-box { padding: 4px 10px; overflow-x: auto; }
+.bk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bk-table th { text-align: left; font-weight: 500; font-size: 11px; color: var(--muted); padding: 10px 8px 8px;
+  border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; white-space: nowrap; }
+.bk-table th.on { color: var(--text); }
+.bk-table th::after { content: attr(data-dir); margin-left: 3px; font-size: 9px; }
+.bk-table td { padding: 8px; border-bottom: 1px dashed var(--line); white-space: nowrap; }
+.bk-table tr:last-child td { border-bottom: 0; }
+.bk-table .r { text-align: right; }
+.bk-table .mono { font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.bk-table td b { font-weight: 500; }
+.bk-table .b { font-weight: 600; font-size: 13px; }
+.bk-table .muted { color: var(--muted); }
+.bk-table .none { text-align: center; color: var(--muted); padding: 30px; }
+@media (max-width: 860px) {
+  .bk-layout { grid-template-columns: 1fr; }
+  .bk-cal { position: static; max-width: 420px; }
+}
+@media (max-width: 640px) {
+  .bk-cards { grid-template-columns: 1fr 1fr; }
+  .bk-cards .card:first-child { grid-column: 1 / -1; }
+  .bk-table td, .bk-table th { padding-left: 5px; padding-right: 5px; }
+}
+
+/* 分頁按鈕：不換行，窄螢幕可橫向捲動 */
+.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { white-space: nowrap; flex: none; }
+.bk-table .short { display: none; }
+@media (max-width: 640px) {
+  .bk-table .full { display: none; }
+  .bk-table .short { display: inline; }
+}
+.bk-table .sm-code { display: none; }
+@media (max-width: 640px) {
+  .bk-table .sm-code { display: block; font: normal 11px "JetBrains Mono", monospace; color: var(--muted); }
+  .bk-table td { white-space: normal; }
+  .bk-table td.r { white-space: nowrap; }
+}
