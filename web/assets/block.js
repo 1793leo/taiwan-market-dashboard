@@ -49,7 +49,7 @@
       if (key === selected) cls.push('sel');
       const heat = info && info.n ? 0.10 + 0.45 * Math.sqrt(info.v / maxV) : 0;
       html += info
-        ? `<button class="${cls.join(' ')}" data-d="${key}" style="--heat:${heat.toFixed(2)}"><b>${d}</b><i>${info.n ? fmtYi(info.v) : '—'}</i></button>`
+        ? `<button class="${cls.join(' ')}" data-d="${key}" style="--heat:${heat.toFixed(2)}"><b>${d}</b></button>`
         : `<span class="${cls.join(' ')}"><b>${d}</b></span>`;
     }
     $('cal-days').innerHTML = html;

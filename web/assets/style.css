@@ -139,7 +139,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; }
 .cal-nav:disabled { opacity: .3; cursor: default; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-wk span { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 4px; }
-.cal-day { aspect-ratio: 1 / 1.05; border-radius: 8px; border: 1px solid transparent; display: flex; flex-direction: column;
+.cal-day { aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid transparent; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1px; font: inherit; color: var(--text); padding: 0;
   background: color-mix(in srgb, var(--b20) calc(var(--heat, 0) * 100%), transparent); }
 button.cal-day { cursor: pointer; border-color: var(--line); }
