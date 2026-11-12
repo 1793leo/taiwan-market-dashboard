@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import twdata  # noqa: E402
 import build  # noqa: E402
 import block  # noqa: E402
+import cb  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -169,6 +170,7 @@ def main():
         update_shares()
         # 鉅額交易：至少保留 25 分鐘，避免被個股回補用完時間
         block.update(DATA, days, max(deadline, time.time() + 25 * 60), log)
+        cb.update(DATA, days, log)
     build.build(DATA, Path(args.site), start)
 
 

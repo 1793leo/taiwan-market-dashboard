@@ -18,6 +18,7 @@ import pandas as pd
 import contrib
 import hot
 import block
+import cb
 
 ROOT = Path(__file__).resolve().parent.parent
 WINDOWS = (5, 20)
@@ -118,6 +119,7 @@ def build(data: Path, site: Path, start: dt.date | None = None):
     contrib.write(data, site)
     hot.write(data, site)
     block.write(data, site)
+    cb.write(data, site)
 
     for name in ("index.html", "config.json", "assets"):
         src = ROOT / "web" / name

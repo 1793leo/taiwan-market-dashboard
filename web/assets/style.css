@@ -191,3 +191,14 @@ button.cal-day:hover { border-color: var(--b20); }
   .bk-table td { white-space: normal; }
   .bk-table td.r { white-space: nowrap; }
 }
+
+/* ---------- 可轉債 */
+.sec-title { margin: 0; font-size: 15px; }
+.bk-table em.sub { display: block; font: normal 11px "JetBrains Mono", monospace; color: var(--muted); }
+.bk-table td .up, .bk-table td.up { color: var(--up); }
+.bk-table td.down { color: var(--down); }
+#tab-cb .bk-table td { white-space: nowrap; }
+@media (max-width: 640px) {
+  #tab-cb .bk-table td, #tab-cb .bk-table th { padding-left: 4px; padding-right: 4px; }
+  #tab-cb .bk-table { font-size: 12px; }
+}
