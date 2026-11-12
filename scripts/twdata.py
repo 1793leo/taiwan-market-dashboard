@@ -144,6 +144,21 @@ def fetch_twse_shares() -> dict[str, float]:
     return out
 
 
+def fetch_tpex_shares() -> dict[str, float]:
+    """上櫃公司已發行股數（櫃買中心 OpenAPI，每日更新）"""
+    r = _session.get("https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O", timeout=60)
+    r.raise_for_status()
+    out = {}
+    for row in r.json():
+        code = str(row.get("SecuritiesCompanyCode", "")).strip()
+        s = num(row.get("IssueShares"))
+        if COMMON_STOCK_RE.match(code) and s:
+            out[code] = s
+    if len(out) < 400:
+        raise RuntimeError(f"上櫃股本資料筆數異常: {len(out)}")
+    return out
+
+
 # ---------------------------------------------------------------- TPEx stocks
 def _parse_tpex_tables(j: dict) -> list[dict]:
     tables = j.get("tables") or []

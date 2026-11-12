@@ -21,6 +21,8 @@ import pandas as pd
 
 import twdata
 
+MCAP_NOTE = "市值 = 鉅額交易當日收盤價 × 已發行股數"
+
 START = dt.date(2026, 1, 1)
 READY_HOUR = 20                      # 台北時間 20:00 之後才抓當天
 COLS = ["date", "code", "name", "type", "price", "shares", "value", "time", "src"]
@@ -131,17 +133,47 @@ def update(data: Path, trading_days: list[dt.date], deadline: float, log=print):
 
 
 # ---------------------------------------------------------------- site
+def _closes(data: Path) -> pd.DataFrame:
+    frames = []
+    for market in ("twse", "tpex"):
+        for p in sorted((data / "stocks" / market).glob("*.csv")):
+            if p.stem >= "2025-12":
+                frames.append(pd.read_csv(p, dtype={"code": str}, usecols=["date", "code", "close"]))
+    if not frames:
+        return pd.DataFrame(columns=["date", "code", "close"])
+    df = pd.concat(frames).dropna(subset=["close"]).drop_duplicates(["date", "code"], keep="last")
+    df["date"] = pd.to_datetime(df["date"])
+    return df.sort_values("date")
+
+
+def _shares(data: Path) -> pd.Series:
+    parts = [pd.read_csv(data / f, dtype={"code": str}) for f in ("shares_twse.csv", "shares_tpex.csv")
+             if (data / f).exists()]
+    if not parts:
+        return pd.Series(dtype=float)
+    return pd.concat(parts).drop_duplicates("code", keep="first").set_index("code")["shares"]
+
+
 def write(data: Path, site: Path):
     folder = data / "block"
     out = site / "data" / "block"
     out.mkdir(parents=True, exist_ok=True)
+    closes, shares = _closes(data), _shares(data)
     dates = {}
     for p in sorted(folder.glob("20*.csv")):
         df = pd.read_csv(p, dtype={"code": str, "time": str}).fillna({"time": "", "type": ""})
+        # 只保留普通股（4 碼數字、首碼非 0）
+        df = df[df["code"].str.match(twdata.COMMON_STOCK_RE.pattern)].copy()
+        # 市值：當日（或最近一個交易日）收盤價 × 已發行股數
+        df["dt"] = pd.to_datetime(df["date"])
+        df = pd.merge_asof(df.sort_values("dt"), closes.rename(columns={"date": "dt"}), on="dt", by="code",
+                           direction="backward")
+        df["mcap"] = df["close"] * df["code"].map(shares)
         month = {}
         for d, g in df.groupby("date"):
-            g = g.sort_values("value", ascending=False)
-            month[d] = [[r.code, r.name, r.type, r.price, int(r.shares), int(r.value), r.time] for r in g.itertuples()]
+            g = g.sort_values(["mcap", "value"], ascending=[True, False], na_position="last")
+            month[d] = [[r.code, r.name, r.type, r.price, int(r.shares), int(r.value), r.time,
+                         None if pd.isna(r.mcap) else round(float(r.mcap) / 1e8, 1)] for r in g.itertuples()]
             dates[d] = {"n": len(g), "v": int(g["value"].sum())}
         (out / f"{p.stem}.json").write_text(json.dumps(month, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     # 抓過但當天沒有鉅額交易的日子也要標示（日曆可點、顯示「無成交」）

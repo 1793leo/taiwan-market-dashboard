@@ -34,6 +34,8 @@ jobs:
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # 排隊中的執行要拿到前一次寫入的最新資料
 
       - uses: actions/setup-python@v5
         with:
@@ -60,6 +62,7 @@ jobs:
             echo "no data change"
           else
             git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
+            git pull --rebase -X theirs origin main || true
             git push
           fi
 

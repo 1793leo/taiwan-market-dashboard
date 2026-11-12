@@ -190,13 +190,15 @@ def ensure_latest_change(day: dt.date):
 
 
 def update_shares():
-    try:
-        shares = twdata.fetch_twse_shares()
-    except Exception as e:  # noqa: BLE001
-        log(f"股本資料更新失敗，沿用舊資料: {e}")
-        return
-    pd.DataFrame(sorted(shares.items()), columns=["code", "shares"]).to_csv(SHARES_CSV, index=False)
-    log(f"股本資料 {len(shares)} 檔")
+    for name, fn, path in (("上市", twdata.fetch_twse_shares, SHARES_CSV),
+                           ("上櫃", twdata.fetch_tpex_shares, DATA / "shares_tpex.csv")):
+        try:
+            shares = fn()
+        except Exception as e:  # noqa: BLE001
+            log(f"{name}股本資料更新失敗，沿用舊資料: {e}")
+            continue
+        pd.DataFrame(sorted(shares.items()), columns=["code", "shares"]).to_csv(path, index=False)
+        log(f"{name}股本資料 {len(shares)} 檔")
 
 
 if __name__ == "__main__":
