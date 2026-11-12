@@ -20,6 +20,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="ma-trend" role="tab">市場均線風向</button>
     <button class="tab" data-tab="contrib" role="tab">貢獻點數</button>
+    <button class="tab" data-tab="hot" role="tab">成交重心股</button>
   </nav>
 </header>
 
@@ -82,10 +83,34 @@
       上市市值前 100 大普通股。貢獻點數 = 漲跌 × 發行股數 ÷ 加權指數除數（除數 = 上市總市值 ÷ 指數），漲跌以參考價計算，除權息日已調整。盤中每 15 秒更新即時報價；收盤後由每日排程更新為官方收盤結果。資料來源：臺灣證券交易所。
     </p>
   </section>
+
+  <section id="tab-hot" class="panel">
+    <div class="ct-head">
+      <span id="hot-status" class="pill">載入中…</span>
+      <span id="hot-time" class="ct-time"></span>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="k">前 30 名合計成交值</div><div class="v" id="hot-sum">—</div><div class="d" id="hot-sumsub">—</div></div>
+      <div class="card"><div class="k">漲 / 跌 / 平</div><div class="v" id="hot-ud">—</div><div class="d">前 30 名中家數</div></div>
+      <div class="card"><div class="k">上市 / 上櫃</div><div class="v" id="hot-mk">—</div><div class="d">前 30 名中家數</div></div>
+      <div class="card"><div class="k">成交值第一</div><div class="v" id="hot-first">—</div><div class="d" id="hot-firstsub">—</div></div>
+    </div>
+    <div class="ct-col hot-box">
+      <div class="hot-row hot-hdr">
+        <span>#</span><span>股票</span><span class="r">成交價</span><span class="r">漲跌幅</span>
+        <span></span><span class="r">成交值(億)</span><span class="r hide-sm">成交量(張)</span>
+      </div>
+      <ol id="hot-list" class="hot-list"></ol>
+    </div>
+    <p class="note">
+      上市櫃普通股（排除 ETF、權證、特別股、TDR、可轉債）當日成交值前 30 名。盤中每 15 秒更新即時報價，成交值以「累積成交量 × (最高 + 最低 + 成交價) ÷ 3」估算，追蹤近 5 日成交值前 200 大股票；收盤後由每日排程更新為官方成交金額。資料來源：臺灣證券交易所、證券櫃檯買賣中心。
+    </p>
+  </section>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/contrib.js"></script>
+<script src="assets/hot.js"></script>
 </body>
 </html>

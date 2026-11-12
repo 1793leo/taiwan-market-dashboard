@@ -2,7 +2,7 @@
 增量更新：
   1. 更新加權指數 (data/taiex.csv)
   2. 以指數交易日為基準，補齊上市/上櫃普通股日 K (data/stocks/{twse,tpex}/YYYY-MM.csv)
-  3. 計算市場均線風向、貢獻點數並輸出網站資料 (build.py)
+  3. 計算市場均線風向、貢獻點數、成交重心股並輸出網站資料 (build.py)
 
 第一次執行會自動回補 --years 年的資料；中途因時間上限中斷，下次執行會從缺口續抓。
 用法: python scripts/update.py --years 3 --budget 300
@@ -25,7 +25,7 @@ import build  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 TAIEX_CSV = DATA / "taiex.csv"
-STOCK_COLS = ["date", "code", "name", "open", "high", "low", "close", "volume", "change"]
+STOCK_COLS = ["date", "code", "name", "open", "high", "low", "close", "volume", "change", "turnover"]
 SHARES_CSV = DATA / "shares_twse.csv"
 TPE = dt.timezone(dt.timedelta(hours=8))
 

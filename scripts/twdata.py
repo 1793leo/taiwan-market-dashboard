@@ -109,6 +109,7 @@ def fetch_twse_stocks(date: dt.date) -> list[dict]:
     ic, iname = _find_col(f, "證券代號"), _find_col(f, "證券名稱")
     io, ih, il, icl = (_find_col(f, k) for k in ("開盤價", "最高價", "最低價", "收盤價"))
     iv = _find_col(f, "成交股數")
+    itv = _find_col(f, "成交金額")
     isg, ich = _find_col(f, "漲跌(+/-)"), _find_col(f, "漲跌價差")
     rows = []
     for d in tbl["data"]:
@@ -122,6 +123,7 @@ def fetch_twse_stocks(date: dt.date) -> list[dict]:
             "code": str(d[ic]).strip(), "name": str(d[iname]).strip(),
             "open": num(d[io]), "high": num(d[ih]), "low": num(d[il]),
             "close": num(d[icl]), "volume": num(d[iv]),
+            "turnover": num(d[itv]) if itv is not None else None,
             "change": change,  # 相對參考價的漲跌（除權息日已調整）
         })
     return _filter_common(rows)
@@ -152,12 +154,14 @@ def _parse_tpex_tables(j: dict) -> list[dict]:
     ic, iname = _find_col(f, "代號"), _find_col(f, "名稱")
     io, ih, il, icl = (_find_col(f, k) for k in ("開盤", "最高", "最低", "收盤"))
     iv = _find_col(f, "成交股數", "成交量")
+    itv = _find_col(f, "成交金額")
     if None in (ic, io, ih, il, icl, iv):
         raise RuntimeError(f"TPEx 欄位格式改變: {f}")
     return [{
         "code": str(d[ic]).strip(), "name": str(d[iname]).strip() if iname is not None else "",
         "open": num(d[io]), "high": num(d[ih]), "low": num(d[il]),
         "close": num(d[icl]), "volume": num(d[iv]),
+        "turnover": num(d[itv]) if itv is not None else None,
     } for d in tbl["data"]]
 
 
@@ -170,6 +174,7 @@ def _parse_tpex_legacy(j: dict) -> list[dict]:
         "code": str(d[0]).strip(), "name": str(d[1]).strip(),
         "open": num(d[4]), "high": num(d[5]), "low": num(d[6]),
         "close": num(d[2]), "volume": num(d[8]),
+        "turnover": num(d[9]) if len(d) > 9 else None,
     } for d in data]
 
 

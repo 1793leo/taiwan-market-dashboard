@@ -96,3 +96,29 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; }
 @media (max-width: 420px) {
   .ct-list li { grid-template-columns: 20px minmax(60px, 1fr) 76px minmax(24px, .8fr) 62px; gap: 6px; }
 }
+
+/* ---------- 成交重心股 */
+.hot-box { padding-top: 6px; }
+.hot-list { list-style: none; margin: 0; padding: 0; }
+.hot-row { display: grid; grid-template-columns: 24px minmax(90px, 1.2fr) 74px 70px minmax(60px, 2fr) 76px 86px;
+  align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px dashed var(--line); font-size: 13px; }
+.hot-list .hot-row:last-child { border-bottom: 0; }
+.hot-hdr { color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.hot-row .r { text-align: right; }
+.hot-row .mono { font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.hot-row .b { font-weight: 600; font-size: 13px; }
+.hot-row .rk { color: var(--muted); font: 11px "JetBrains Mono", monospace; text-align: right; }
+.hot-row .nm { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.hot-row .nm b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hot-row .nm em { font: normal 11px "JetBrains Mono", monospace; color: var(--muted); display: flex; gap: 5px; align-items: center; }
+.mk { font: normal 10px "Noto Sans TC", sans-serif; padding: 0 4px; border-radius: 3px; border: 1px solid var(--line); }
+.mk.otc { color: var(--b20); border-color: color-mix(in srgb, var(--b20) 45%, transparent); }
+.hot-row .bar { height: 10px; background: var(--grid); border-radius: 3px; overflow: hidden; }
+.hot-row .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--muted); }
+.hot-row .bar.up > span { background: var(--up); }
+.hot-row .bar.down > span { background: var(--down); }
+#hot-first { font-family: "Noto Sans TC", sans-serif; font-weight: 700; }
+@media (max-width: 640px) {
+  .hot-row { grid-template-columns: 20px minmax(64px, 1fr) 58px 58px minmax(24px, .7fr) 54px; gap: 6px; }
+  .hide-sm { display: none; }
+}

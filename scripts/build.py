@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 import contrib
+import hot
 
 ROOT = Path(__file__).resolve().parent.parent
 WINDOWS = (5, 20)
@@ -88,6 +89,7 @@ def build(data: Path, site: Path, start: dt.date | None = None):
     (site / "data" / "dashboard.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
     contrib.write(data, site)
+    hot.write(data, site)
 
     for name in ("index.html", "config.json", "assets"):
         src = ROOT / "web" / name
