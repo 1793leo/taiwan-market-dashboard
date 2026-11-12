@@ -5,7 +5,7 @@
  * 這個 Worker 代為查詢並加上 CORS 標頭，只開放給儀表板網址使用。
  *
  * 用法：GET https://<你的worker>.workers.dev/?codes=2330,2317&otc=6488,3105
- *   codes = 上市代號，otc = 上櫃代號
+ *   codes = 上市代號，otc = 上櫃代號（含 5 碼可轉債）
  *   回傳 { time, ver, quotes: [{ c, n, ex, z, y, b, a, o, h, l, v, t, d }] }
  *   一律附帶加權指數 (c = "t00")
  *
@@ -13,7 +13,7 @@
  *   櫃買中心「熱門股證券商進出排行」（盤中 10:00、11:00、12:00 更新），快取 2 分鐘
  */
 
-const VERSION = 3;
+const VERSION = 4;
 const ALLOWED_ORIGINS = [
   'https://1793leo.github.io',
   'http://localhost:8000',
@@ -34,7 +34,7 @@ function corsHeaders(origin) {
 }
 
 function parseCodes(s) {
-  return [...new Set((s || '').split(','))].filter((c) => /^\d{4}$/.test(c));
+  return [...new Set((s || '').split(','))].filter((c) => /^\d{4,6}$/.test(c));   // 股票 4 碼、可轉債 5 碼
 }
 
 async function queryMis(channels) {

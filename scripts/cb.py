@@ -280,7 +280,9 @@ def write(data: Path, site: Path):
                     "sp": spx, "conv": conv, "parity": round(parity, 2) if parity else None,
                     "prem": round((r.close / parity - 1) * 100, 2) if parity and r.close == r.close and r.close else None})
 
-    out = {"date": bdate, "qdate": qdate, "breakout": breakout, "watch": watch, "top": top}
+    # 盤中成交量排行用：全部掛牌中的可轉債 [代號, 簡稱, 轉換價, 標的代號, 標的市場(若可對應)]
+    allcb = [[r.code, r.name, float(r.conv), r.s, today.at[r.s, "m"] if r.ok else None] for r in board.itertuples()]
+    out = {"date": bdate, "qdate": qdate, "breakout": breakout, "watch": watch, "top": top, "all": allcb}
     (site / "data").mkdir(parents=True, exist_ok=True)
     (site / "data" / "cb.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":"), default=float),
                                            encoding="utf-8")

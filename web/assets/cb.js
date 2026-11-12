@@ -38,16 +38,77 @@
   }
   renderBreak([...D.breakout], 'close', `盤後 · ${D.date}`);
 
-  // ---------- 成交量前 30
-  $('cb-qdate').textContent = `盤後 · ${D.qdate}`;
-  $('cb-top').innerHTML = D.top.map((r, k) => `<tr>
-    <td class="muted mono">${k + 1}</td>
-    <td><b>${r.n}</b><em class="sub">${r.c}</em></td>
-    <td class="r mono b ${cls(r.chg)}">${fmt(r.p)}</td><td class="r mono hide-sm ${cls(r.chg)}">${sgn(r.chg)}</td>
-    <td class="r mono b">${fmt(r.v, 0)}</td><td class="r mono hide-sm">${fmt(r.amt / 1e4, 0)}</td>
-    <td class="r mono hide-sm">${fmt(r.sp)}</td><td class="r mono hide-sm">${fmt(r.conv)}</td>
-    <td class="r mono">${fmt(r.parity)}</td><td class="r mono ${cls(r.prem)}">${r.prem == null ? '—' : sgn(r.prem) + '%'}</td>
-  </tr>`).join('');
+  // ---------- 成交量前 30（盤後靜態；10:00 起盤中每 10 分鐘即時排行）
+  function renderTop(list, label, live) {
+    const q = $('cb-qdate');
+    q.className = 'pill' + (live ? ' live' : '');
+    q.innerHTML = label;
+    $('cb-top').innerHTML = list.map((r, k) => `<tr>
+      <td class="muted mono">${k + 1}</td>
+      <td><b>${r.n}</b><em class="sub">${r.c}</em></td>
+      <td class="r mono b ${cls(r.chg)}">${fmt(r.p)}</td><td class="r mono hide-sm ${cls(r.chg)}">${sgn(r.chg)}</td>
+      <td class="r mono b">${fmt(r.v, 0)}</td><td class="r mono hide-sm">${fmt(r.amt / 1e4, 0)}</td>
+      <td class="r mono hide-sm">${fmt(r.sp)}</td><td class="r mono hide-sm">${fmt(r.conv)}</td>
+      <td class="r mono">${fmt(r.parity)}</td><td class="r mono ${cls(r.prem)}">${r.prem == null ? '—' : sgn(r.prem) + '%'}</td>
+    </tr>`).join('') || '<tr><td colspan="10" class="none">目前沒有資料</td></tr>';
+  }
+  renderTop(D.top, `盤後 · ${D.qdate}`);
+
+  let topLast = 0, topBusy = false, topDone = false;
+  const topWindow = () => { const t = tpe(); return t.dow >= 1 && t.dow <= 5 && t.mins >= 600 && D.qdate < t.ymd; };
+  async function pollTop(force) {
+    if (topBusy || topDone || !cfg.quoteProxy || !topWindow() || !(D.all || []).length) return;
+    if (!force && (document.hidden || Date.now() - topLast < 10 * 60 * 1000 - 5000)) return;
+    topBusy = true;
+    try {
+      const proxy = cfg.quoteProxy.replace(/\/$/, '');
+      const codes = D.all.map((x) => x[0]);
+      const calls = [];
+      for (let i = 0; i < codes.length; i += 280) calls.push(`${proxy}/?otc=${codes.slice(i, i + 280).join(',')}`);
+      const res = await Promise.all(calls.map((u) => fetch(u, { cache: 'no-store' }).then((r) => r.json())));
+      if (res.some((j) => !j.ver || j.ver < 4)) throw new Error('中繼服務需更新為最新版 Worker 才能查可轉債');
+      const q = new Map(); let ix = null;
+      res.forEach((j) => { if (j.error) throw new Error(j.error); j.quotes.forEach((x) => { if (x.c === 't00') ix = x; else q.set(x.c, x); }); });
+      const t = tpe();
+      if (!ix || ix.d !== t.ymd.replace(/-/g, '')) { topDone = true; return; }
+      const info = new Map(D.all.map((x) => [x[0], x]));
+      let list = [];
+      for (const [c, x] of q) {
+        const v = num(x.v); if (!v) continue;
+        const y = num(x.y), b = first(x.b), a = first(x.a);
+        const p = num(x.z) ?? (b && a ? (b + a) / 2 : b ?? a) ?? y;
+        const h = num(x.h) ?? p, l = num(x.l) ?? p;
+        const [, n, conv, s, m] = info.get(c) || [c, x.n, null, null, null];
+        list.push({ c, n: n || x.n, p, chg: y && p ? p - y : null, v, amt: v * 1000 * (h + l + p) / 3, s, m, conv });
+      }
+      list.sort((a, b) => b.v - a.v);
+      list = list.slice(0, 30);
+      // 標的即時股價 → 轉換價值、溢價率
+      const tse = list.filter((r) => r.m === 'tse').map((r) => r.s), otc = list.filter((r) => r.m === 'otc').map((r) => r.s);
+      if (tse.length || otc.length) {
+        const sj = await (await fetch(`${proxy}/?codes=${tse.join(',')}&otc=${otc.join(',')}`, { cache: 'no-store' })).json();
+        const sq = new Map((sj.quotes || []).map((x) => [x.c, x]));
+        for (const r of list) {
+          const x = r.m && sq.get(r.s); if (!x) continue;
+          const b = first(x.b), a = first(x.a);
+          r.sp = num(x.z) ?? (b && a ? (b + a) / 2 : b ?? a) ?? num(x.y);
+          if (r.sp && r.conv) { r.parity = 100 * r.sp / r.conv; r.prem = (r.p / r.parity - 1) * 100; }
+        }
+      }
+      topLast = Date.now();
+      const after = t.mins > 13 * 60 + 30;
+      if (after && ix.t >= '13:30') topDone = true;
+      renderTop(list, (after ? '今日收盤（即時報價）' : '<span class="dot"></span>盤中即時') + ` · ${ix.t}`, true);
+    } catch (e) {
+      $('cb-qdate').textContent = `盤後 · ${D.qdate}（即時排行暫時無法取得：${e.message}）`;
+      topLast = Date.now();
+    } finally {
+      topBusy = false;
+    }
+  }
+  pollTop(true);
+  setInterval(() => pollTop(false), 30 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollTop(false); });
 
   // ---------- 盤中即時（每 10 分鐘）
   const LIVE_MS = 10 * 60 * 1000;
