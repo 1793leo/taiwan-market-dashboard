@@ -12,22 +12,28 @@
  *       GET https://<你的worker>.workers.dev/broker
  *   櫃買中心「熱門股證券商進出排行」（盤中 10:00、11:00、12:00 更新），快取 2 分鐘
  *
- * 排程（Cloudflare Cron Triggers，時間為 UTC，準時觸發 GitHub Actions；GitHub 自己的排程常延遲數小時）
- *   "10 2-4 * * 1-5"  台北 10:10／11:10／12:10 → 櫃買熱門股（broker.yml）
- *   "40 7 * * 1-5"    台北 15:40 → 盤後更新（update.yml）
- *   "3 8 * * 1-5"     台北 16:03 → 盤後定價交易（update.yml）
- *   "40 9 * * 1-5"    台北 17:40 → 盤後補抓（update.yml）
- *   "3 13 * * 1-5"    台北 21:03 → 鉅額交易（update.yml）
- *   需在 Worker 設定 Secret：GH_TOKEN（GitHub fine-grained token，僅此 repo、Actions: Read and write）
+ * 排程：Cloudflare 只需設定 1 條 Cron Trigger，頻率選「每 5 分鐘」（Every 5 minutes），
+ * 實際要在幾點觸發哪個 GitHub Actions 由下方 SCHEDULE（台北時間）決定；新增排程只要改這張表。
+ * （GitHub 自己的排程常延遲數小時，所以由這裡準時觸發）
+ * 需在 Worker 設定 Secret：GH_TOKEN（GitHub fine-grained token，僅此 repo、Actions: Read and write）
  */
 const REPO = '1793leo/taiwan-market-dashboard';
-const CRON_WORKFLOW = {
-  '10 2-4 * * 1-5': 'broker.yml',
-  '40 7 * * 1-5': 'update.yml',
-  '3 8 * * 1-5': 'update.yml',
-  '40 9 * * 1-5': 'update.yml',
-  '3 13 * * 1-5': 'update.yml',
-};
+const SCHEDULE = [   // [台北時間 HH:MM（需為 5 分鐘的倍數）, 星期（1=一 … 5=五）, workflow]
+  ['10:10', [1, 2, 3, 4, 5], 'broker.yml'],   // 櫃買熱門股
+  ['11:10', [1, 2, 3, 4, 5], 'broker.yml'],
+  ['12:10', [1, 2, 3, 4, 5], 'broker.yml'],
+  ['15:40', [1, 2, 3, 4, 5], 'update.yml'],   // 盤後更新
+  ['16:05', [1, 2, 3, 4, 5], 'update.yml'],   // 盤後定價交易
+  ['17:40', [1, 2, 3, 4, 5], 'update.yml'],   // 盤後補抓
+  ['21:05', [1, 2, 3, 4, 5], 'update.yml'],   // 鉅額交易
+];
+
+function dueWorkflows(scheduledTime) {
+  const t = new Date(scheduledTime + 8 * 3600e3);              // 台北時間
+  const hm = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+  const dow = t.getUTCDay();
+  return [...new Set(SCHEDULE.filter(([at, days]) => at === hm && days.includes(dow)).map((x) => x[2]))];
+}
 
 async function dispatch(workflow, env) {
   if (!env.GH_TOKEN) throw new Error('缺少 GH_TOKEN secret');
@@ -114,8 +120,7 @@ async function brokerVol(cors) {
 
 export default {
   async scheduled(event, env, ctx) {
-    const wf = CRON_WORKFLOW[event.cron];
-    if (wf) ctx.waitUntil(dispatch(wf, env));
+    for (const wf of dueWorkflows(event.scheduledTime)) ctx.waitUntil(dispatch(wf, env));
   },
 
   async fetch(req) {
