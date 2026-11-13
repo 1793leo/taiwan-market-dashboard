@@ -1,0 +1,10 @@
+name: probe
+on:
+  push:
+    branches: [probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -m 30 "https://tw-quote.leochan1793.workers.dev/status"; echo
