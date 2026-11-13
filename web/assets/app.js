@@ -186,7 +186,7 @@
   };
   const histLast = T.date[T.date.length - 1];
   const num = (v) => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
-  const first = (s) => num(String(s || '').split('_')[0]);
+  const first = (s) => { for (const x of String(s || '').split('_')) { const n = num(x); if (n) return n; } return null; };   // 跳過漲跌停鎖死時的市價委託 0
   const status = (html, cls, sub) => {
     const st = document.getElementById('ma-status'); st.className = 'pill' + (cls ? ' ' + cls : ''); st.innerHTML = html;
     document.getElementById('ma-time').textContent = sub || '';

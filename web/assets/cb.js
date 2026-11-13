@@ -4,7 +4,7 @@
   const sgn = (n, d = 2) => n == null || Number.isNaN(n) ? '—' : (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n), d);
   const cls = (n) => n > 0 ? 'up' : n < 0 ? 'down' : '';
   const num = (v) => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
-  const first = (s) => num(String(s || '').split('_')[0]);
+  const first = (s) => { for (const x of String(s || '').split('_')) { const n = num(x); if (n) return n; } return null; };   // 跳過漲跌停鎖死時的市價委託 0
   const tpe = () => {
     const d = new Date(Date.now() + 8 * 3600e3);
     return { dow: d.getUTCDay(), mins: d.getUTCHours() * 60 + d.getUTCMinutes(), ymd: d.toISOString().slice(0, 10) };

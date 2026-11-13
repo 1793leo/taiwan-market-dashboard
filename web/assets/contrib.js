@@ -16,7 +16,7 @@
 
   // ---------- helpers
   const num = (v) => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
-  const first = (s) => num(String(s || '').split('_')[0]);
+  const first = (s) => { for (const x of String(s || '').split('_')) { const n = num(x); if (n) return n; } return null; };   // 跳過漲跌停鎖死時的市價委託 0
   const fmt = (n, d = 2) => n == null ? '—' : n.toLocaleString('zh-TW', { minimumFractionDigits: d, maximumFractionDigits: d });
   const sgn = (n, d = 2) => n == null ? '—' : (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n), d);
   const cls = (n) => n > 0 ? 'up' : n < 0 ? 'down' : '';
