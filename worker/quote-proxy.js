@@ -11,9 +11,41 @@
  *
  *       GET https://<你的worker>.workers.dev/broker
  *   櫃買中心「熱門股證券商進出排行」（盤中 10:00、11:00、12:00 更新），快取 2 分鐘
+ *
+ * 排程（Cloudflare Cron Triggers，時間為 UTC，準時觸發 GitHub Actions；GitHub 自己的排程常延遲數小時）
+ *   "10 2-4 * * 1-5"  台北 10:10／11:10／12:10 → 櫃買熱門股（broker.yml）
+ *   "40 7 * * 1-5"    台北 15:40 → 盤後更新（update.yml）
+ *   "3 8 * * 1-5"     台北 16:03 → 盤後定價交易（update.yml）
+ *   "40 9 * * 1-5"    台北 17:40 → 盤後補抓（update.yml）
+ *   "3 13 * * 1-5"    台北 21:03 → 鉅額交易（update.yml）
+ *   需在 Worker 設定 Secret：GH_TOKEN（GitHub fine-grained token，僅此 repo、Actions: Read and write）
  */
+const REPO = '1793leo/taiwan-market-dashboard';
+const CRON_WORKFLOW = {
+  '10 2-4 * * 1-5': 'broker.yml',
+  '40 7 * * 1-5': 'update.yml',
+  '3 8 * * 1-5': 'update.yml',
+  '40 9 * * 1-5': 'update.yml',
+  '3 13 * * 1-5': 'update.yml',
+};
 
-const VERSION = 4;
+async function dispatch(workflow, env) {
+  if (!env.GH_TOKEN) throw new Error('缺少 GH_TOKEN secret');
+  const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.GH_TOKEN}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'tw-quote-worker',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ref: 'main' }),
+  });
+  if (r.status !== 204) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0, 200)}`);
+}
+
+const VERSION = 5;
 const ALLOWED_ORIGINS = [
   'https://1793leo.github.io',
   'http://localhost:8000',
@@ -81,6 +113,11 @@ async function brokerVol(cors) {
 }
 
 export default {
+  async scheduled(event, env, ctx) {
+    const wf = CRON_WORKFLOW[event.cron];
+    if (wf) ctx.waitUntil(dispatch(wf, env));
+  },
+
   async fetch(req) {
     const origin = req.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
