@@ -51,7 +51,7 @@ async function dispatch(workflow, env) {
   if (r.status !== 204) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
 
-const VERSION = 5;
+const VERSION = 6;
 const ALLOWED_ORIGINS = [
   'https://1793leo.github.io',
   'http://localhost:8000',
@@ -120,10 +120,14 @@ async function brokerVol(cors) {
 
 export default {
   async scheduled(event, env, ctx) {
-    for (const wf of dueWorkflows(event.scheduledTime)) ctx.waitUntil(dispatch(wf, env));
+    for (const wf of dueWorkflows(event.scheduledTime)) {
+      ctx.waitUntil(dispatch(wf, env)
+        .then(() => console.log(`已觸發 ${wf}`))
+        .catch((e) => console.log(`觸發 ${wf} 失敗：${e.message}`)));
+    }
   },
 
-  async fetch(req) {
+  async fetch(req, env) {
     const origin = req.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
@@ -133,6 +137,20 @@ export default {
 
     const url = new URL(req.url);
     if (url.pathname.replace(/\/$/, '') === '/broker') return brokerVol(cors);
+    // 自我檢查（唯讀，不會觸發任何工作）：版本、時間表、GH_TOKEN 是否有效
+    if (url.pathname.replace(/\/$/, '') === '/status') {
+      let gh = '未設定 GH_TOKEN';
+      if (env.GH_TOKEN) {
+        const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/broker.yml`, {
+          headers: { 'Authorization': `Bearer ${env.GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'User-Agent': 'tw-quote-worker' },
+        });
+        gh = r.status === 200 ? 'OK（權杖有效，可存取 repo）' : `GitHub 回應 ${r.status}（權杖無效或權限不足）`;
+      }
+      const now = Date.now();
+      return new Response(JSON.stringify({ ver: VERSION, github: gh, schedule: SCHEDULE.map((x) => x[0] + ' ' + x[2]),
+        due_now: dueWorkflows(now - (now % 300000)) }, null, 2),
+        { headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' } });
+    }
     const tse = parseCodes(url.searchParams.get('codes'));
     const otc = parseCodes(url.searchParams.get('otc'));
     const channels = ['tse_t00.tw', ...tse.map((c) => `tse_${c}.tw`), ...otc.map((c) => `otc_${c}.tw`)]
