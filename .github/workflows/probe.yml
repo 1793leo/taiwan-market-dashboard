@@ -8,6 +8,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36" https://www.yuantaetfs.com/tradeInfo/pcf/0050 > y.html
-          node -e "const vm=require('vm');let h=require('fs').readFileSync('y.html','utf8');const m=h.match(/<script>(window\.__NUXT__=[\s\S]*?)<\/script>/);const c={window:{}};vm.runInNewContext(m[1],c);const d=c.window.__NUXT__;console.log('YK '+JSON.stringify(Object.keys(d)));(d.data||[]).forEach((x,i)=>console.log('YD',i,JSON.stringify(Object.keys(x||{})), JSON.stringify(x).slice(0,600)));console.log('YF '+JSON.stringify(d.fetch||{}).slice(0,1500));console.log('YS '+JSON.stringify(Object.keys(d.state||{})))"
-          grep -o "trandate[^,]*" y.html | head -3; grep -o "pcf[A-Za-z]*" y.html | sort | uniq -c | head
+          for c in 0050 00631L; do
+          curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36" -H "Accept-Language: zh-TW" https://www.yuantaetfs.com/tradeInfo/pcf/$c > y.html
+          echo "YLEN $c $(wc -c < y.html)"; grep -o "<title>[^<]*" y.html | sed 's/^/YT /'
+          grep -o "<script[^>]*>window.__NUXT__.\{0,300\}" y.html | sed 's/^/YN /' | cut -c1-400
+          grep -o "pcfData.\{0,200\}" y.html | head -2 | sed 's/^/YP /'
+          grep -o "trandate.\{0,40\}" y.html | head -2 | sed 's/^/YR /'
+          done
