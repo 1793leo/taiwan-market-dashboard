@@ -48,9 +48,11 @@
     const s = doc.summary;
     const wk = '日一二三四五六'[new Date(d + 'T00:00:00+08:00').getDay()];
     $('etf-date').textContent = `${d}（${wk}）`;
-    $('etf-upd').textContent = doc.updated ? `元大上傳 ${doc.updated}` : '';
+    $('etf-upd').textContent = doc.updated ? `${doc.issuer || '元大'}投信 · 上傳 ${doc.updated}` : (doc.issuer ? `${doc.issuer}投信` : '');
     $('etf-av').textContent = yi(s.totalav);
-    $('etf-avsub').textContent = `股票 ${yi(s.stkvalues || 0)} · 期貨 ${yi(s.futvalues || 0)}`;
+    $('etf-avsub').textContent = s.stkvalues != null
+      ? `股票 ${yi(s.stkvalues || 0)}` + (s.futvalues != null ? ` · 期貨 ${yi(s.futvalues || 0)}` : ` · ${doc.stocks.length} 檔`)
+      : `股票 ${doc.stocks.length} 檔 · 期貨 ${doc.futures.length} 筆`;
     $('etf-nav').textContent = fmt(s.nav, 2);
     $('etf-navsub').textContent = '新台幣';
     $('etf-os').textContent = fmt(s.osunit / 1e8, 2) + ' 億單位';
@@ -121,6 +123,15 @@
     renderFlows();
     const s = doc.summary, a = doc.ann_date || '';
     const item = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+    $('etf-kindbox').hidden = !doc.inkind.length;
+    if (doc.pcf_items) {
+      const val = ([, v, t]) => v == null ? '—' : t === 'date' ? v.replaceAll('-', '/') : t === 'txt' ? v
+        : t === 'NTD' ? 'NTD ' + fmt(v) : t === 'sgn' ? sgn(v) : fmt(v);
+      $('etf-pcfinfo').innerHTML = `<div class="etf-grid">${doc.pcf_items.map((x) => item(x[0], val(x))).join('')}</div>
+        ${doc.inkind.length ? '' : '<p class="note" style="margin:8px 0 0">此檔為現金申購／買回，無實物申購籃。</p>'}`;
+      $('etf-kind').innerHTML = '';
+      return;
+    }
     $('etf-pcfinfo').innerHTML = `<div class="etf-grid">
       ${item('公告日期（適用申購日）', a ? `${a.slice(0, 4)}/${a.slice(4, 6)}/${a.slice(6)}` : '—')}
       ${item('每實物申購單位之受益權單位數', fmt(s.baseunit))}
