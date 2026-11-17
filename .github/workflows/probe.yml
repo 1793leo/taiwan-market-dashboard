@@ -6,41 +6,43 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests pandas lxml html5lib beautifulsoup4
       - run: |
-          npm i -s playwright@1.48.2 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
-          cat > t.js <<'JS'
-          const { chromium } = require('playwright');
-          const PAGES = [
-            'https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3',
-            'https://www.cathaysite.com.tw/ETF/purchase?code=CN&name=%E5%9C%8B%E6%B3%B0%E5%8F%B0%E7%81%A3ESG%E6%B0%B8%E7%BA%8C%E9%AB%98%E8%82%A1%E6%81%AFETF%E5%9F%BA%E9%87%91',
-            'https://www.capitalfund.com.tw/etf/product/detail/195/portfolio',
-            'https://www.capitalfund.com.tw/etf/product/detail/195/buyback',
-            'https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208',
-            'https://websys.fsit.com.tw/FubonETF/Trade/Pcf.aspx?stkId=006208&lan=TW',
-            'https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=49YTW',
-          ];
-          (async () => {
-            const b = await chromium.launch();
-            for (const u of PAGES) {
-              const p = await b.newPage();
-              console.log('==== PAGE', u);
-              p.on('response', async (r) => {
-                const ct = r.headers()['content-type'] || '', url = r.url();
-                if (!/json|xml|plain/.test(ct) || /google|facebook|gtm|analytics|hotjar|clarity/.test(url)) return;
-                let body = ''; try { body = await r.text(); } catch (e) {}
-                if (body.length < 200) return;
-                console.log('XHR', r.request().method(), r.status(), url.slice(0, 250), 'LEN', body.length);
-                const pd = r.request().postData(); if (pd) console.log('  POST', pd.slice(0, 300));
-                console.log('  BODY', body.replace(/\s+/g, ' ').slice(0, 600));
-              });
-              try { await p.goto(u, { waitUntil: 'networkidle', timeout: 60000 }); } catch (e) { console.log('GOTO', e.message.slice(0, 100)); }
-              await p.waitForTimeout(3000);
-              const t = (await p.innerText('body').catch(() => '')).replace(/\s+/g, ' ');
-              const k = ['台積電', '股票代號', '代號', '申購', '淨值'].map((x) => t.indexOf(x)).filter((x) => x >= 0).sort((a, b) => a - b)[0] ?? 0;
-              console.log('TEXTLEN', t.length); console.log('TEXT', t.slice(Math.max(0, k - 200), k + 1200));
-              await p.close();
-            }
-            await b.close();
-          })();
-          JS
-          node t.js
+          python3 - <<'PY'
+          import json, re, io, requests, pandas as pd
+          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+                "Accept-Language": "zh-TW,zh;q=0.9"}
+          def shape(o, d=0):
+              if isinstance(o, dict): return {k: shape(v, d+1) for k, v in o.items()} if d < 3 else "{...}"
+              if isinstance(o, list): return [f"list {len(o)}", shape(o[0], d+1) if o else None]
+              return o if not isinstance(o, str) or len(o) < 40 else o[:40]
+          print("##### CAPITAL")
+          for dt in (None, "2026-11-14"):
+              r = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": "195", "date": dt}, headers=UA, timeout=30)
+              j = r.json(); print("DATE", dt, json.dumps(shape(j), ensure_ascii=False)[:2500])
+          print("##### FUBON")
+          for u in ["https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208", "https://websys.fsit.com.tw/FubonETF/Trade/Pcf.aspx?stkId=006208&lan=TW"]:
+              h = requests.get(u, headers=UA, timeout=30).text
+              print("URL", u, len(h))
+              try:
+                  for i, t in enumerate(pd.read_html(io.StringIO(h))):
+                      print(" TABLE", i, t.shape); print(t.head(4).to_string()[:700])
+              except Exception as e: print(" read_html", e)
+              print(" FORMS", re.findall(r'name="(__[A-Z]+|[^"]*ddl[^"]*|[^"]*Date[^"]*)"', h)[:12])
+          print("##### EZMONEY")
+          h = requests.get("https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=49YTW", headers=UA, timeout=30).text
+          print("LEN", len(h)); print("JSONURLS", sorted(set(re.findall(r'["\'](/ETF/[^"\']*Json[^"\']*)', h)))[:20])
+          for k in ("台積電", "DataAsset", "asset", "Pcf", "PCF"):
+              i = h.find(k); print("FIND", k, i, re.sub(r"\s+", " ", h[max(0, i-300):i+500]) if i >= 0 else "")
+          try:
+              for i, t in enumerate(pd.read_html(io.StringIO(h))):
+                  print(" TABLE", i, t.shape); print(t.head(3).to_string()[:500])
+          except Exception as e: print(" read_html", e)
+          print("##### CATHAY")
+          for u in ["https://www.cathaysite.com.tw/", "https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3", "https://cwapi.cathaysite.com.tw/"]:
+              try:
+                  r = requests.get(u, headers=UA, timeout=20); print(u, r.status_code, len(r.text), r.text[:150].replace("\n", " "))
+              except Exception as e: print(u, "ERR", str(e)[:120])
+          PY
