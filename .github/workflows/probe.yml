@@ -8,41 +8,33 @@ jobs:
     steps:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install -q requests pandas lxml html5lib beautifulsoup4
+      - run: pip install -q requests pandas lxml
       - run: |
           python3 - <<'PY'
-          import json, re, io, requests, pandas as pd
-          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
-                "Accept-Language": "zh-TW,zh;q=0.9"}
-          def shape(o, d=0):
-              if isinstance(o, dict): return {k: shape(v, d+1) for k, v in o.items()} if d < 3 else "{...}"
-              if isinstance(o, list): return [f"list {len(o)}", shape(o[0], d+1) if o else None]
-              return o if not isinstance(o, str) or len(o) < 40 else o[:40]
+          import json, re, io, html as H, requests
+          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
+          txt = lambda h: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style)[^>]*>.*?</\1>", "", h, flags=re.S)))
           print("##### CAPITAL")
-          for dt in (None, "2026-11-14"):
-              r = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": "195", "date": dt}, headers=UA, timeout=30)
-              j = r.json(); print("DATE", dt, json.dumps(shape(j), ensure_ascii=False)[:2500])
-          print("##### FUBON")
-          for u in ["https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208", "https://websys.fsit.com.tw/FubonETF/Trade/Pcf.aspx?stkId=006208&lan=TW"]:
-              h = requests.get(u, headers=UA, timeout=30).text
-              print("URL", u, len(h))
-              try:
-                  for i, t in enumerate(pd.read_html(io.StringIO(h))):
-                      print(" TABLE", i, t.shape); print(t.head(4).to_string()[:700])
-              except Exception as e: print(" read_html", e)
-              print(" FORMS", re.findall(r'name="(__[A-Z]+|[^"]*ddl[^"]*|[^"]*Date[^"]*)"', h)[:12])
+          j = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": "195", "date": "2026-11-13"}, headers=UA, timeout=30).json()
+          print("HIST 11/13", j.get("code"), (j.get("data") or {}).get("pcf", {}).get("date2"), len((j.get("data") or {}).get("stocks") or []))
+          j = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": "195", "date": None}, headers=UA, timeout=30).json()["data"]
+          print("STOCK0", json.dumps(j["stocks"][0], ensure_ascii=False)); print("FUT", json.dumps(j["futures"], ensure_ascii=False)[:400]); print("ASSETS", json.dumps(j["assets"], ensure_ascii=False)[:500])
+          print("##### FUBON PCF")
+          h = requests.get("https://websys.fsit.com.tw/FubonETF/Trade/Pcf.aspx?stkId=006208&lan=TW", headers=UA, timeout=30).text
+          t = txt(h); i = t.find("申購"); print(t[t.find("基金淨資產") - 200 if "基金淨資產" in t else 0:][:2500])
           print("##### EZMONEY")
           h = requests.get("https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=49YTW", headers=UA, timeout=30).text
-          print("LEN", len(h)); print("JSONURLS", sorted(set(re.findall(r'["\'](/ETF/[^"\']*Json[^"\']*)', h)))[:20])
-          for k in ("台積電", "DataAsset", "asset", "Pcf", "PCF"):
-              i = h.find(k); print("FIND", k, i, re.sub(r"\s+", " ", h[max(0, i-300):i+500]) if i >= 0 else "")
-          try:
-              for i, t in enumerate(pd.read_html(io.StringIO(h))):
-                  print(" TABLE", i, t.shape); print(t.head(3).to_string()[:500])
-          except Exception as e: print(" read_html", e)
+          m = re.search(r'id="DataAsset" data-content="([^"]*)"', h); a = json.loads(H.unescape(m.group(1)))
+          for x in a: print("ASSET", x.get("AssetCode"), x.get("AssetName"), x.get("Value"), "details", len(x.get("Details") or []), json.dumps((x.get("Details") or [None])[0], ensure_ascii=False)[:300])
+          for u in ["https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW", "https://www.ezmoney.com.tw/ETF/Transaction/PCF"]:
+              h2 = requests.get(u, headers=UA, timeout=30).text; t = txt(h2)
+              print("PCFURL", u, len(h2), "ids", sorted(set(re.findall(r'id="(Data[A-Za-z]+)"', h2))))
+              k = t.find("已發行"); print(" TEXT", t[max(0, k - 600):k + 900] if k >= 0 else t[:400])
           print("##### CATHAY")
-          for u in ["https://www.cathaysite.com.tw/", "https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3", "https://cwapi.cathaysite.com.tw/"]:
-              try:
-                  r = requests.get(u, headers=UA, timeout=20); print(u, r.status_code, len(r.text), r.text[:150].replace("\n", " "))
-              except Exception as e: print(u, "ERR", str(e)[:120])
+          h = requests.get("https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3", headers=UA, timeout=30).text
+          js = re.findall(r'src="([^"]*main[^"]*\.js)"', h); print("JS", js)
+          for s in js[:2]:
+              b = requests.get("https://www.cathaysite.com.tw/" + s.lstrip("/"), headers=UA, timeout=60).text
+              print("LEN", len(b)); print("HOSTS", sorted(set(re.findall(r'https?://[a-zA-Z0-9.-]*cathay[a-zA-Z0-9.-]*', b)))[:20])
+              print("ETFAPI", sorted(set(re.findall(r'["\'`]([A-Za-z/]*(?:[Ee][Tt][Ff]|Pcf|PCF|Purchase|Hold|Stock|Portfolio)[A-Za-z/]*)["\'`]', b)))[:120])
           PY
