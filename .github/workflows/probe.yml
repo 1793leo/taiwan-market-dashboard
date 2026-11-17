@@ -7,11 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests pandas lxml html5lib beautifulsoup4
       - run: |
-          for c in 0050 00631L; do
-          curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36" -H "Accept-Language: zh-TW" https://www.yuantaetfs.com/tradeInfo/pcf/$c > y.html
-          echo "YLEN $c $(wc -c < y.html)"; grep -o "<title>[^<]*" y.html | sed 's/^/YT /'
-          grep -o "<script[^>]*>window.__NUXT__.\{0,300\}" y.html | sed 's/^/YN /' | cut -c1-400
-          grep -o "pcfData.\{0,200\}" y.html | head -2 | sed 's/^/YP /'
-          grep -o "trandate.\{0,40\}" y.html | head -2 | sed 's/^/YR /'
-          done
+          cd scripts && python3 -c "
+          import etf; from pathlib import Path
+          for k in ['0050','0056','00631L']: etf.ETFS.pop(k)
+          etf.update(Path('../out'))"
+          cd .. && tar czf - out | base64 -w0 | sed 's/^/B64 /'; echo

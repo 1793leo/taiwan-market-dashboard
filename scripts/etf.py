@@ -210,8 +210,9 @@ def fetch_fubon(code: str, fid: str) -> dict:
                 c = str(row[cc["期貨代碼"]]).strip()
                 if c in ("", "nan") or "合計" in c or "期貨代碼" in c:
                     continue
-                m = re.search(r"(\d{6})", c)
-                futures.append({"c": c, "n": str(row[cc["期貨名稱"]]).strip(), "ym": m.group(1) if m else None,
+                nm = str(row[cc["期貨名稱"]]).strip()
+                m = re.search(r"(\d{4})/(\d{1,2})", nm)
+                futures.append({"c": c, "n": nm, "ym": f"{m.group(1)}{int(m.group(2)):02d}" if m else None,
                                 "q": inum(row[cc["口數"]]), "w": num(row[cc["權重"]])})
     hold_date = iso(_after(text, "資料日期", r"(\d{3,4}/\d{1,2}/\d{1,2})") or _after(text, "日期", r"(\d{3,4}/\d{1,2}/\d{1,2})"))
 
