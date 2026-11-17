@@ -18,7 +18,7 @@ import requests
 
 import twdata
 
-ETFS = ["0050"]
+ETFS = ["0050", "0056"]   # 元大投信 ETF；新增代號即可
 ROOT = Path(__file__).resolve().parent
 
 
@@ -74,6 +74,7 @@ def update(data: Path, log=print):
 
 
 def write(data: Path, site: Path):
+    listing = []
     for code in ETFS:
         files = sorted((data / "etf" / code).glob("20*.json"))
         if not files:
@@ -100,4 +101,7 @@ def write(data: Path, site: Path):
             dates.append(doc["date"])
         (out / "index.json").write_text(json.dumps({"code": code, "name": doc["name"], "dates": dates}, ensure_ascii=False),
                                         encoding="utf-8")
+        listing.append({"code": code, "name": doc["name"]})
         print(f"etf {code}: {len(dates)} 天，最新 {dates[-1]}")
+    (site / "data" / "etf").mkdir(parents=True, exist_ok=True)
+    (site / "data" / "etf" / "list.json").write_text(json.dumps(listing, ensure_ascii=False), encoding="utf-8")

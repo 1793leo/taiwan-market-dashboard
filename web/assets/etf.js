@@ -5,9 +5,11 @@
   const cls = (n) => n > 0 ? 'up' : n < 0 ? 'down' : '';
   const yi = (v) => { const x = v / 1e8; return (x >= 1000 ? fmt(x, 0) : fmt(x, 1)) + ' 億'; };
 
-  const CODES = ['0050'];
+  let LIST = [{ code: '0050', name: '' }];
+  try { LIST = await (await fetch('data/etf/list.json', { cache: 'no-cache' })).json(); } catch (e) { /* 沿用預設 */ }
   const sel = $('etf-sel');
-  sel.innerHTML = CODES.map((c) => `<option value="${c}">${c}</option>`).join('');
+  sel.innerHTML = LIST.map((x) => `<option value="${x.code}">${x.code} ${x.name || ''}</option>`).join('');
+  const CODES = LIST.map((x) => x.code);
 
   let idx = null, code = CODES[0], view = '', selected = '', doc = null;
   let sortKey = 'w', sortDir = -1;
@@ -16,7 +18,6 @@
   async function loadIndex() {
     try { idx = await (await fetch(`data/etf/${code}/index.json`, { cache: 'no-cache' })).json(); }
     catch (e) { idx = null; $('etf-date').textContent = '尚無紀錄'; return; }
-    sel.options[sel.selectedIndex].textContent = `${code} ${idx.name || ''}`;
     selected = idx.dates[idx.dates.length - 1];
     view = selected.slice(0, 7);
     await show(selected);
