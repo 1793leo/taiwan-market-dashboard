@@ -1,0 +1,46 @@
+name: probe
+on:
+  push:
+    branches: [probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          npm i -s playwright@1.48.2 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright');
+          const PAGES = [
+            'https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3',
+            'https://www.cathaysite.com.tw/ETF/purchase?code=CN&name=%E5%9C%8B%E6%B3%B0%E5%8F%B0%E7%81%A3ESG%E6%B0%B8%E7%BA%8C%E9%AB%98%E8%82%A1%E6%81%AFETF%E5%9F%BA%E9%87%91',
+            'https://www.capitalfund.com.tw/etf/product/detail/195/portfolio',
+            'https://www.capitalfund.com.tw/etf/product/detail/195/buyback',
+            'https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208',
+            'https://websys.fsit.com.tw/FubonETF/Trade/Pcf.aspx?stkId=006208&lan=TW',
+            'https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=49YTW',
+          ];
+          (async () => {
+            const b = await chromium.launch();
+            for (const u of PAGES) {
+              const p = await b.newPage();
+              console.log('==== PAGE', u);
+              p.on('response', async (r) => {
+                const ct = r.headers()['content-type'] || '', url = r.url();
+                if (!/json|xml|plain/.test(ct) || /google|facebook|gtm|analytics|hotjar|clarity/.test(url)) return;
+                let body = ''; try { body = await r.text(); } catch (e) {}
+                if (body.length < 200) return;
+                console.log('XHR', r.request().method(), r.status(), url.slice(0, 250), 'LEN', body.length);
+                const pd = r.request().postData(); if (pd) console.log('  POST', pd.slice(0, 300));
+                console.log('  BODY', body.replace(/\s+/g, ' ').slice(0, 600));
+              });
+              try { await p.goto(u, { waitUntil: 'networkidle', timeout: 60000 }); } catch (e) { console.log('GOTO', e.message.slice(0, 100)); }
+              await p.waitForTimeout(3000);
+              const t = (await p.innerText('body').catch(() => '')).replace(/\s+/g, ' ');
+              const k = ['台積電', '股票代號', '代號', '申購', '淨值'].map((x) => t.indexOf(x)).filter((x) => x >= 0).sort((a, b) => a - b)[0] ?? 0;
+              console.log('TEXTLEN', t.length); console.log('TEXT', t.slice(Math.max(0, k - 200), k + 1200));
+              await p.close();
+            }
+            await b.close();
+          })();
+          JS
+          node t.js
