@@ -7,12 +7,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -q requests pandas lxml html5lib beautifulsoup4
+      - run: pip install -q requests
       - run: |
-          cd scripts && python3 -c "
-          import etf; from pathlib import Path
-          for k in ['0050','0056','00631L']: etf.ETFS.pop(k)
-          etf.update(Path('../out'))"
-          cd .. && tar czf - out | base64 -w0 | sed 's/^/B64 /'; echo
+          python3 - <<'PY'
+          import requests, re, json, subprocess
+          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
+          r = requests.get("https://www.yuantaetfs.com/tradeInfo/pcf/0050", headers=H, timeout=60)
+          h = r.text
+          print("YST", r.status_code, len(h), r.url)
+          i = h.find("__NUXT__"); print("YCTX", h[max(0,i-100):i+300])
+          open("y.html","w").write(h)
+          js = r"""const vm=require('vm');const h=require('fs').readFileSync('y.html','utf8');const m=h.match(/<script>(window\.__NUXT__=[\s\S]*?)<\/script>/);if(!m){console.log('YNOMATCH');process.exit()}const c={window:{}};vm.runInNewContext(m[1],c);const d=c.window.__NUXT__;console.log('YK '+JSON.stringify(Object.keys(d)));(d.data||[]).forEach((x,i)=>console.log('YD '+i+' '+JSON.stringify(Object.keys(x||{}))+' '+JSON.stringify(x).slice(0,500)));console.log('YF '+JSON.stringify(d.fetch||{}).slice(0,800));console.log('YE '+JSON.stringify(d.error||null))"""
+          print(subprocess.run(["node","-e",js],capture_output=True,text=True))
+          for u in ["https://www.yuantaetfs.com/api/Pcf?fundid=0050", "https://www.yuantaetfs.com/api/PCF?ticker=0050"]:
+              try: x = requests.get(u, headers=H, timeout=20); print("YAPI", u, x.status_code, x.text[:200])
+              except Exception as e: print("YAPI", u, e)
+          PY
