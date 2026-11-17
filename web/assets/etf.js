@@ -90,7 +90,35 @@
     if (first) $('etf-removed').innerHTML += '<p class="note">這是第一筆紀錄，股數增減與權重變化從下一個交易日開始顯示。</p>';
   }
 
+  let FLOWS = {};
+  try { FLOWS = await (await fetch('data/etf/flows.json', { cache: 'no-cache' })).json(); } catch (e) { /* 無總表 */ }
+  function renderFlows() {
+    const rows = FLOWS[selected] || [];
+    $('etf-flowdate').textContent = `${selected} · ${rows.length} 檔`;
+    const tot = rows.reduce((a, r) => a + (r.diff || 0) * (r.nav || 0), 0);
+    $('etf-flows').innerHTML = rows.map((r) => {
+      const amt = (r.diff || 0) * (r.nav || 0), units = r.base ? r.diff / r.base : null;
+      return `<tr class="etf-flow-row ${r.code === code ? 'cur' : ''}" data-c="${r.code}">
+        <td><b>${r.code}</b><em class="sub">${r.name || ''}</em></td>
+        <td class="r mono">${fmt(r.nav, 2)}</td><td class="r mono">${fmt(r.osunit / 1e8, 2)} 億</td>
+        <td class="r mono b ${cls(r.diff)}">${r.diff > 0 ? '淨申購 ' : r.diff < 0 ? '淨贖回 ' : ''}${sgn(r.diff)}</td>
+        <td class="r mono hide-sm ${cls(r.diff)}">${units == null ? '—' : sgn(units)}</td>
+        <td class="r mono ${cls(amt)}">${amt ? sgn(amt / 1e8, 2) + ' 億' : '—'}</td>
+        <td class="r mono hide-sm">${yi(r.totalav)}</td></tr>`;
+    }).join('') + (rows.length > 1 ? `<tr class="etf-flow-total"><td><b>合計</b></td><td></td><td></td><td></td><td class="hide-sm"></td>
+        <td class="r mono b ${cls(tot)}">${sgn(tot / 1e8, 2)} 億</td><td class="hide-sm"></td></tr>` : '')
+      || '<tr><td colspan="7" class="none">當日無紀錄</td></tr>';
+  }
+  $('etf-flows').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-c]'); if (!tr || tr.dataset.c === code) return;
+    code = tr.dataset.c; sel.value = code;
+    fetch(`data/etf/${code}/index.json`, { cache: 'no-cache' }).then((r) => r.json()).then((j) => {
+      idx = j; show(idx.dates.includes(selected) ? selected : idx.dates[idx.dates.length - 1]);
+    });
+  });
+
   function renderPcf() {
+    renderFlows();
     const s = doc.summary, a = doc.ann_date || '';
     const item = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
     $('etf-pcfinfo').innerHTML = `<div class="etf-grid">

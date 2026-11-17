@@ -306,3 +306,6 @@ button.cal-day:hover { border-color: var(--b20); }
   #tab-etf .bk-table td, #tab-etf .bk-table th { padding-left: 4px; padding-right: 4px; font-size: 12px; }
   #tab-etf .bk-table td b { white-space: nowrap; }
 }
+#tab-etf .etf-flow-row { cursor: pointer; }
+#tab-etf .etf-flow-row.cur td { background: color-mix(in srgb, var(--b20) 10%, transparent); }
+#tab-etf .etf-flow-total td { border-top: 1px solid var(--line); }

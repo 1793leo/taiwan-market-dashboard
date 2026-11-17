@@ -74,7 +74,7 @@ def update(data: Path, log=print):
 
 
 def write(data: Path, site: Path):
-    listing = []
+    listing, flows = [], {}
     for code in ETFS:
         files = sorted((data / "etf" / code).glob("20*.json"))
         if not files:
@@ -97,6 +97,10 @@ def write(data: Path, site: Path):
                 doc["removed"] = [{"c": s["c"], "n": s["n"], "q": s["q"], "w": s["w"]} for s in prev["stocks"] if s["c"] not in cur]
                 doc["prev_date"] = prev["date"]
             prev = json.loads(p.read_text(encoding="utf-8"))
+            s = doc["summary"]
+            flows.setdefault(doc["date"], []).append({
+                "code": code, "name": doc["name"], "nav": s.get("nav"), "osunit": s.get("osunit"),
+                "diff": s.get("issuesdiff"), "base": s.get("baseunit"), "totalav": s.get("totalav")})
             (out / p.name).write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             dates.append(doc["date"])
         (out / "index.json").write_text(json.dumps({"code": code, "name": doc["name"], "dates": dates}, ensure_ascii=False),
@@ -105,3 +109,6 @@ def write(data: Path, site: Path):
         print(f"etf {code}: {len(dates)} 天，最新 {dates[-1]}")
     (site / "data" / "etf").mkdir(parents=True, exist_ok=True)
     (site / "data" / "etf" / "list.json").write_text(json.dumps(listing, ensure_ascii=False), encoding="utf-8")
+    # 申購贖回總表：每個日期所有追蹤 ETF 的淨申購／贖回
+    (site / "data" / "etf" / "flows.json").write_text(json.dumps(flows, ensure_ascii=False, separators=(",", ":")),
+                                                      encoding="utf-8")
