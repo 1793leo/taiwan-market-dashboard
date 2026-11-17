@@ -25,6 +25,7 @@
     <button class="tab" data-tab="cb" role="tab">可轉債</button>
     <button class="tab" data-tab="otc-hot" role="tab">櫃買熱門股</button>
     <button class="tab" data-tab="post" role="tab">盤後交易</button>
+    <button class="tab" data-tab="etf" role="tab">ETF</button>
   </nav>
 </header>
 
@@ -265,6 +266,58 @@
     </div>
     <p class="note">資料來源：臺灣證券交易所「盤後定價交易」（最後揭示買量／賣量）、證券櫃檯買賣中心「盤後定價行情」（委買／委賣未成交張數），僅列普通股（排除 ETF、權證等）。金額 = 未成交張數 × 1,000 股 × 成交價；當日盤後無成交者以收盤價計算並標示「未成交」。每個交易日 16:00 更新。</p>
   </section>
+
+  <section id="tab-etf" class="panel">
+    <div class="ct-head">
+      <select id="etf-sel" class="pt-sel" aria-label="選擇 ETF"></select>
+      <span id="etf-date" class="pill">載入中…</span>
+      <span id="etf-upd" class="ct-time"></span>
+      <div class="seg pt-sub" id="etf-sub"><button data-s="hold" class="on">持股明細</button><button data-s="pcf">申購買回</button></div>
+    </div>
+    <div class="cards etf-cards">
+      <div class="card"><div class="k">基金淨資產</div><div class="v" id="etf-av">—</div><div class="d" id="etf-avsub">—</div></div>
+      <div class="card"><div class="k">單位淨值</div><div class="v" id="etf-nav">—</div><div class="d" id="etf-navsub">—</div></div>
+      <div class="card"><div class="k">在外流通單位</div><div class="v" id="etf-os">—</div><div class="d" id="etf-ossub">—</div></div>
+      <div class="card"><div class="k">當日申購／贖回</div><div class="v" id="etf-flow">—</div><div class="d" id="etf-flowsub">—</div></div>
+      <div class="card"><div class="k">受益人數</div><div class="v" id="etf-ben">—</div><div class="d" id="etf-bensub">—</div></div>
+    </div>
+    <div class="bk-layout">
+      <aside class="bk-cal ct-col">
+        <div class="cal-head">
+          <button id="etf-prev" class="cal-nav" aria-label="上個月">‹</button>
+          <b id="etf-title">—</b>
+          <button id="etf-next" class="cal-nav" aria-label="下個月">›</button>
+        </div>
+        <div class="cal-grid cal-wk"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div id="etf-days" class="cal-grid"></div>
+        <p class="cal-tip">有紀錄的日期可點選回看（自 2026/11/17 起每日記錄）。</p>
+      </aside>
+      <div class="bk-main">
+        <div id="etf-hold">
+          <div class="ct-col bk-box">
+            <table class="bk-table etf-table"><thead><tr>
+              <th data-k="i">#</th><th data-k="c" class="hide-sm">代號</th><th data-k="n">名稱</th><th data-k="q" class="r">持股股數</th>
+              <th data-k="w" class="r">權重(%)</th><th data-k="dq" class="r">股數增減</th><th data-k="dw" class="r hide-sm">權重變化</th>
+            </tr></thead><tbody id="etf-stocks"></tbody></table>
+          </div>
+          <div id="etf-removed"></div>
+          <div class="ct-col bk-box" style="margin-top:12px">
+            <table class="bk-table"><thead><tr><th>期貨部位</th><th>月份</th><th class="r">口數</th><th class="r">權重(%)</th></tr></thead>
+            <tbody id="etf-fut"></tbody></table>
+          </div>
+        </div>
+        <div id="etf-pcf" hidden>
+          <div class="ct-col bk-box etf-info" id="etf-pcfinfo"></div>
+          <div class="ct-col bk-box" style="margin-top:12px">
+            <table class="bk-table"><thead><tr>
+              <th>#</th><th>代號</th><th>名稱</th><th class="r">股數</th><th class="r">現金替代</th><th class="r">可參與最小申購</th>
+            </tr></thead><tbody id="etf-kind"></tbody></table>
+          </div>
+        </div>
+        <p class="note">資料來源：元大投信「申購買回清單」（每交易日約 16:15 上傳）。持股股數增減與權重變化為與前一筆紀錄比較；股數增加可能來自申購、減少來自買回或成分調整。當日申購／贖回 = 與前日已發行受益權單位差異數，約當金額以當日淨值估算。</p>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -276,5 +329,6 @@
 <script src="assets/cb_hist.js"></script>
 <script src="assets/broker.js"></script>
 <script src="assets/post.js"></script>
+<script src="assets/etf.js"></script>
 </body>
 </html>

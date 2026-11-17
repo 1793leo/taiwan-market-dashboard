@@ -25,6 +25,7 @@ import build  # noqa: E402
 import block  # noqa: E402
 import cb  # noqa: E402
 import post  # noqa: E402
+import etf  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -176,6 +177,7 @@ def main():
         block.update(DATA, days, max(deadline, time.time() + 25 * 60), log)
         cb.update(DATA, days, log, max(deadline, time.time() + 20 * 60))
         post.update(DATA, days, log)
+        etf.update(DATA, log)
     build.build(DATA, Path(args.site), start)
 
 

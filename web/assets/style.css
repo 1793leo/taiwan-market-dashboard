@@ -287,3 +287,22 @@ button.cal-day:hover { border-color: var(--b20); }
 #pt-limit tr.drop td { background: color-mix(in srgb, #f5a524 12%, transparent); }
 #pt-limit tr.drop td:first-child { box-shadow: inset 4px 0 0 #f5a524; }
 #pt-limit .drop-num { color: #c27c00; font-weight: 700; }
+
+/* ---------- ETF */
+.etf-cards { grid-template-columns: repeat(5, 1fr); }
+.etf-cards .v { font-size: 20px; }
+.etf-table th { cursor: pointer; }
+#tab-etf tr.etf-new td { background: color-mix(in srgb, var(--up) 8%, transparent); }
+.etf-info { padding: 12px 14px; }
+.etf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 18px; }
+.etf-grid div { display: flex; flex-direction: column; gap: 2px; }
+.etf-grid span { font-size: 11px; color: var(--muted); }
+.etf-grid b { font: 600 14px "JetBrains Mono", "Noto Sans TC", monospace; }
+@media (max-width: 1100px) { .etf-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .etf-cards { grid-template-columns: 1fr 1fr; } .etf-cards .v { font-size: 16px; } }
+#tab-etf .sm-code { display: none; }
+@media (max-width: 640px) {
+  #tab-etf .sm-code { display: block; font: normal 11px "JetBrains Mono", monospace; color: var(--muted); }
+  #tab-etf .bk-table td, #tab-etf .bk-table th { padding-left: 4px; padding-right: 4px; font-size: 12px; }
+  #tab-etf .bk-table td b { white-space: nowrap; }
+}
