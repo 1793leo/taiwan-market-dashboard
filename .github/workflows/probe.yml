@@ -6,28 +6,17 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install -q requests
+      - run: pip install -q requests pandas lxml html5lib beautifulsoup4
       - run: |
+          cd scripts && python3 etf.py
           python3 - <<'PY'
-          import json, re, requests
-          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9", "Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
-          W = "https://www.cathaysite.com.tw/"
-          rt = requests.get(W + "runtime.1cb66d2da53ea6af0fc1.js", headers=UA, timeout=30).text
-          m = re.search(r'f\.u=e=>e\+"\."\+(\{[^}]*\})', rt)
-          chunks = dict(re.findall(r'(\d+):"([0-9a-f]+)"', m.group(1)))
-          print("NCHUNK", len(chunks))
-          for k, v in chunks.items():
-              try: b = requests.get(f"{W}{k}.{v}.js", headers=UA, timeout=30).text
-              except Exception: continue
-              for key in ("GetETFDetailStockList(", "GetETFDetailFutureList("):
-                  for mm in list(re.finditer(re.escape(key), b))[:2]:
-                      print("CALL", k, key, b[max(0, mm.start()-500): mm.start()+300].replace("\n", " "))
-          print("##### EZ")
-          s = requests.Session(); s.headers.update({"User-Agent": UA["User-Agent"]})
-          s.get("https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW", timeout=30)
-          for p in ({"fundCode": "49YTW", "date": "115/11/18", "specificDate": False}, {"fundCode": "49YTW", "date": "115/11/13", "specificDate": True}):
-              r = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", json=p, timeout=30)
-              print("EZ", p, r.status_code, r.text[:2500])
+          import re, requests, json
+          UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36","Origin":"https://www.cathaysite.com.tw","Referer":"https://www.cathaysite.com.tw/"}
+          r=requests.get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFDetailFutureList",params={"FundCode":"CN","SearchDate":"2026-11-16"},headers=UA,timeout=30); print("CFUT", r.text[:600])
+          t=requests.get("https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208",headers=UA,timeout=30).text
+          t=re.sub(r"<[^>]+>"," ",t); t=re.sub(r"\s+"," ",t)
+          for m in re.finditer(r"\d{3,4}/\d{1,2}/\d{1,2}", t): print("FDATE", t[max(0,m.start()-80):m.end()+20])
           PY
