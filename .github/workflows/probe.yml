@@ -14,22 +14,20 @@ jobs:
           import json, re, requests
           UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9", "Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
           h = requests.get("https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3", headers=UA, timeout=30).text
-          js = re.findall(r'src="([^"]*main[^"]*\.js)"', h)[0]
-          b = requests.get("https://www.cathaysite.com.tw/" + js, headers=UA, timeout=60).text
-          i = b.find("GetPromise(t,n"); 
-          for m in list(re.finditer(r'GetPromise\([a-z],[a-z]', b))[:1]: print("GP", b[m.start()-100:m.start()+900])
-          for k in ("GetETFDetailStockList(", "BuySale.GetStocksList(", "BuySale.GetBuySale(", "GetETFAssets("):
-              for m in list(re.finditer(re.escape(k), b))[:2]: print("CALL", k, b[max(0,m.start()-400):m.start()+200])
-          api = "https://cwapi.cathaysite.com.tw/api/"
-          for ep in ("ETF/GetETFDetailStockList", "ETF/GetETFAssets", "BuySale/GetBuySale", "BuySale/GetStocksList", "ETF/GetETFInfoMain"):
-              for p in ({"FundCode": "CN"}, {"fundCode": "CN"}, {"FundCode": "ECN"}):
-                  for meth in ("get", "post"):
-                      try:
-                          r = getattr(requests, meth)(api + ep, **({"params": p} if meth == "get" else {"json": p}), headers=UA, timeout=20)
-                          print("API", meth, ep, p, r.status_code, r.text[:600].replace("\n", " "))
-                      except Exception as e: print("API", ep, p, "ERR", e)
+          srcs = re.findall(r'src="([^"]+\.js)"', h)
+          print("SRCS", srcs)
+          for s in srcs:
+              b = requests.get("https://www.cathaysite.com.tw/" + s, headers=UA, timeout=60).text
+              for k in ("GetETFDetailStockList(", "GetStocksList(", "GetETFDetailFutureList("):
+                  for m in list(re.finditer(re.escape(k), b))[:3]:
+                      print("CALL", s, k, b[max(0,m.start()-300):m.start()+150].replace("\n"," "))
+              # lazy chunks
+          rt = [s for s in srcs if "runtime" in s]
+          if rt:
+              b = requests.get("https://www.cathaysite.com.tw/" + rt[0], headers=UA, timeout=60).text
+              print("RT", b[:3000])
           print("##### EZ")
           h = requests.get("https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW", headers=UA, timeout=30).text
-          i = h.find('$("#ED").val()')
-          print("EZCTX", h[max(0, i - 1500): i + 800])
+          i = h.find('createApp({')
+          print("EZCTX", h[i: i + 5000])
           PY
