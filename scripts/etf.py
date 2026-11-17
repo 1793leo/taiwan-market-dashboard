@@ -77,6 +77,15 @@ def iso(s) -> str | None:
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else None
 
 
+def jsdate(s) -> str | None:
+    """'/Date(1794904218000)/' 或 ISO 字串 → 'YYYY-MM-DD HH:MM'（台北時間）"""
+    m = re.search(r"/Date\((\d+)", str(s or ""))
+    if m:
+        t = dt.datetime.fromtimestamp(int(m.group(1)) / 1000, dt.timezone(dt.timedelta(hours=8)))
+        return t.strftime("%Y-%m-%d %H:%M")
+    return str(s).replace("T", " ")[:16] if s else None
+
+
 def ymd(s) -> str | None:
     d = iso(s)
     return d.replace("-", "") if d else None
@@ -178,6 +187,14 @@ def fetch_fubon(code: str, fid: str) -> dict:
     for t in tables:
         cols = [str(c) for c in t.columns]
         t.columns = cols
+        if not any("代碼" in c for c in cols):
+            # 表頭在第一列資料裡
+            hdr = next((i for i in range(min(3, len(t))) if any("代碼" in str(v) for v in t.iloc[i])), None)
+            if hdr is None:
+                continue
+            cols = [str(v).strip() for v in t.iloc[hdr]]
+            t = t.iloc[hdr + 1:].copy()
+            t.columns = cols
         if any("股票代碼" in c for c in cols):
             cc = {k: next(c for c in cols if k in c) for k in ("股票代碼", "股票名稱", "股數", "權重")}
             amt = next((c for c in cols if "金額" in c), None)
@@ -270,7 +287,7 @@ def fetch_ezmoney(code: str, fid: str) -> dict:
     pcf = {x.get("PCFCode"): x for x in (pr.json().get("pcf") or [])}
     v = lambda k: num((pcf.get(k) or {}).get("Amount"))  # noqa: E731
     any_ = next(iter(pcf.values()), {})
-    tran, post = iso(any_.get("TranDate")), iso(any_.get("PostDate"))
+    tran, post = iso(jsdate(any_.get("TranDate"))), iso(jsdate(any_.get("PostDate")))
     nav = v("P_UNIT") or num((by.get("P_UNIT") or {}).get("Amount"))
     s_ = {"totalav": v("NAV") or num((by.get("NAV") or {}).get("Amount")), "nav": nav,
           "osunit": inum(v("OUT_UNIT") or (by.get("OUT_UNIT") or {}).get("Amount")),
@@ -288,7 +305,7 @@ def fetch_ezmoney(code: str, fid: str) -> dict:
         s_["issuesdiff"] = s_["issuesdiff"] if tran == date else None
     for x in stocks:
         x.pop("amt", None)
-    return {"code": code, "date": date, "name": "統一台股增長主動式", "updated": (any_.get("EditDate") or "").replace("T", " "),
+    return {"code": code, "date": date, "name": "統一台股增長主動式", "updated": jsdate(any_.get("EditDate")),
             "ann_date": ymd(post), "summary": s_, "stocks": stocks, "futures": futures, "inkind": [],
             "pcf_items": items, "memo": []}
 
@@ -318,9 +335,9 @@ def fetch_cathay(code: str, fid: str) -> dict:
     futures = []
     for x in ft:
         c = str(x.get("ftNo") or "").strip()
-        m = re.search(r"(\d{6})", c + str(x.get("ftName") or ""))
-        futures.append({"c": c, "n": (x.get("ftName") or "").strip(), "ym": m.group(1) if m else None,
-                        "q": inum(x.get("lots") or x.get("lot") or x.get("qty") or x.get("volumn")), "w": num(x.get("ntMkval"))})
+        ym = re.sub(r"\D", "", str(x.get("ftDate") or ""))[:6]
+        futures.append({"c": c, "n": (x.get("ftName") or "").strip(), "ym": ym or None,
+                        "q": inum(x.get("volumn")), "w": num(x.get("ntMkval"))})
     bdate = iso(b.get("preDateC"))
     same = bdate == date
     bm = iso(b.get("dataDate"))
@@ -336,7 +353,7 @@ def fetch_cathay(code: str, fid: str) -> dict:
              ["與前日已發行單位差異數", inum(b.get("diffUnit")), "sgn"]]
     return {"code": code, "date": date, "name": "國泰永續高股息", "updated": b.get("date") or a.get("preDate"),
             "ann_date": ymd(b.get("date")), "summary": s, "stocks": stocks, "futures": futures, "inkind": [],
-            "pcf_items": items, "memo": [], "_raw_future_keys": sorted(ft[0].keys()) if ft else []}
+            "pcf_items": items, "memo": []}
 
 
 FETCH = {"yuanta": fetch_yuanta, "capital": fetch_capital, "fubon": fetch_fubon, "ezmoney": fetch_ezmoney,
@@ -347,7 +364,6 @@ def fetch(code: str) -> dict:
     issuer, fid = ETFS[code]
     doc = FETCH[issuer](code, fid)
     doc["issuer"] = ISSUER[issuer]
-    doc.pop("_raw_future_keys", None)
     doc["stocks"] = [s for s in doc["stocks"] if s["c"] and s["w"] is not None]
     return doc
 

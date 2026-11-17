@@ -11,12 +11,11 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -q requests pandas lxml html5lib beautifulsoup4
       - run: |
-          cd scripts && python3 etf.py
+          cd scripts && python3 etf.py 00878 00919 006208 00981A
           python3 - <<'PY'
-          import re, requests, json
-          UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36","Origin":"https://www.cathaysite.com.tw","Referer":"https://www.cathaysite.com.tw/"}
-          r=requests.get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFDetailFutureList",params={"FundCode":"CN","SearchDate":"2026-11-16"},headers=UA,timeout=30); print("CFUT", r.text[:600])
-          t=requests.get("https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208",headers=UA,timeout=30).text
-          t=re.sub(r"<[^>]+>"," ",t); t=re.sub(r"\s+"," ",t)
-          for m in re.finditer(r"\d{3,4}/\d{1,2}/\d{1,2}", t): print("FDATE", t[max(0,m.start()-80):m.end()+20])
+          import requests, subprocess
+          h = requests.get("https://www.yuantaetfs.com/tradeInfo/pcf/0050", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36"}, timeout=60).text
+          print("YLEN", len(h), "nuxt" , h.count("__NUXT__"), "pcfData", h.count("pcfData"))
+          js = "const vm=require('vm');let h=require('fs').readFileSync(0,'utf8');const m=h.match(/<script>(window\\.__NUXT__=[\\s\\S]*?)<\\/script>/);const c={window:{}};vm.runInNewContext(m[1],c);const d=c.window.__NUXT__;console.log('YKEYS',Object.keys(d),JSON.stringify(d.data).slice(0,800),JSON.stringify(d.fetch||{}).slice(0,800))"
+          print(subprocess.run(["node", "-e", js], input=h, capture_output=True, text=True).stdout[:3000])
           PY
