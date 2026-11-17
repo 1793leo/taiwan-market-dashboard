@@ -13,21 +13,21 @@ jobs:
           python3 - <<'PY'
           import json, re, requests
           UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9", "Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
-          h = requests.get("https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3", headers=UA, timeout=30).text
-          srcs = re.findall(r'src="([^"]+\.js)"', h)
-          print("SRCS", srcs)
-          for s in srcs:
-              b = requests.get("https://www.cathaysite.com.tw/" + s, headers=UA, timeout=60).text
-              for k in ("GetETFDetailStockList(", "GetStocksList(", "GetETFDetailFutureList("):
-                  for m in list(re.finditer(re.escape(k), b))[:3]:
-                      print("CALL", s, k, b[max(0,m.start()-300):m.start()+150].replace("\n"," "))
-              # lazy chunks
-          rt = [s for s in srcs if "runtime" in s]
-          if rt:
-              b = requests.get("https://www.cathaysite.com.tw/" + rt[0], headers=UA, timeout=60).text
-              print("RT", b[:3000])
+          W = "https://www.cathaysite.com.tw/"
+          rt = requests.get(W + "runtime.1cb66d2da53ea6af0fc1.js", headers=UA, timeout=30).text
+          m = re.search(r'f\.u=e=>e\+"\."\+(\{[^}]*\})', rt)
+          chunks = dict(re.findall(r'(\d+):"([0-9a-f]+)"', m.group(1)))
+          print("NCHUNK", len(chunks))
+          for k, v in chunks.items():
+              try: b = requests.get(f"{W}{k}.{v}.js", headers=UA, timeout=30).text
+              except Exception: continue
+              for key in ("GetETFDetailStockList(", "GetETFDetailFutureList("):
+                  for mm in list(re.finditer(re.escape(key), b))[:2]:
+                      print("CALL", k, key, b[max(0, mm.start()-500): mm.start()+300].replace("\n", " "))
           print("##### EZ")
-          h = requests.get("https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW", headers=UA, timeout=30).text
-          i = h.find('createApp({')
-          print("EZCTX", h[i: i + 5000])
+          s = requests.Session(); s.headers.update({"User-Agent": UA["User-Agent"]})
+          s.get("https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW", timeout=30)
+          for p in ({"fundCode": "49YTW", "date": "115/11/18", "specificDate": False}, {"fundCode": "49YTW", "date": "115/11/13", "specificDate": True}):
+              r = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", json=p, timeout=30)
+              print("EZ", p, r.status_code, r.text[:2500])
           PY
