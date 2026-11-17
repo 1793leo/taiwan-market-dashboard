@@ -100,6 +100,8 @@ def stocks_value(stocks):
 def fetch_yuanta(code: str, fid: str) -> dict:
     r = requests.get(f"https://www.yuantaetfs.com/tradeInfo/pcf/{fid}", timeout=60, headers=UA)
     r.raise_for_status()
+    if "maintenance" in r.url:
+        raise RuntimeError("元大網站維護中，下次排程再抓")
     out = subprocess.run(["node", str(ROOT / "etf_extract.js")], input=r.text, capture_output=True,
                          text=True, timeout=60)
     if out.returncode != 0:
