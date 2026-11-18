@@ -9,30 +9,28 @@ jobs:
       - run: pip install -q requests
       - run: |
           python3 - <<'PY'
-          import re, requests, json, warnings
+          import re, requests, json, warnings, html
           warnings.filterwarnings("ignore")
           H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
           def get(u, **k):
               try: return requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k)
               except Exception as e: print("ERR", u, e); return None
-          CH = {"Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
-          for c in ("00881", "00922"):
-              r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFList", params={"Keyword": c}, h=CH)
-              try: print("CKEY", c, [(x["stockCode"], x["fundCode"], x["fundSName"]) for x in r.json()["result"]][:5])
-              except Exception as e: print("CKEY", c, e, r.text[:200])
           t = get("https://www.fhtrust.com.tw/ETF/etf_detail/ETF21").text
-          for k in ("getETFPcf(", "getAssets(", "getStockhold(", "fundID"):
-              for m in list(re.finditer(re.escape(k), t))[:3]: print("FHP", k, re.sub(r"\s+", " ", t[max(0, m.start()-300): m.start()+400]))
-          for u in ("https://www.fhtrust.com.tw/api/ETFPcf?fundID=ETF21", "https://www.fhtrust.com.tw/api/assets?fundID=ETF21", "https://www.fhtrust.com.tw/api/stockhold?fundID=ETF21"):
-              r = get(u); print("FHAPI", u, r.status_code, r.text[:800])
-          r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": "J023"}, headers=H, timeout=30)
-          t = re.sub(r"<script.*?</script>", " ", r.text, flags=re.S); tt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
-          print("KRED", r.status_code, len(r.text), tt[:3000])
-          import html
-          d = get("https://www.kgifund.com.tw/Fund/Detail?fundID=J023").text
-          i = d.find('id="FundDetail-06"'); seg = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "|", d[i: i+6000])))
-          print("KDET", re.sub(r"(\|\s*)+", "|", seg)[:2500])
+          print("FHSRC", sorted(set(re.findall(r'src="([^"]+\.js[^"]*)"', t))))
+          for s in sorted(set(re.findall(r'src="(/js/[^"]+)"', t))):
+              b = get("https://www.fhtrust.com.tw" + s).text
+              for k in ("getETFPcf(", "getAssets(", "assetsExcel"):
+                  for m in list(re.finditer(re.escape(k), b))[:2]: print("FHC", s, k, b[max(0, m.start()-600): m.start()+500].replace("\n", " "))
+          # inline scripts
+          for m in re.finditer(r"<script>(.*?)</script>", t, re.S):
+              sc = m.group(1)
+              if "getETFPcf" in sc or "getAssets" in sc: print("FHINL", sc[:3000].replace("\n", " "))
           b = get("https://www.uobam.com.tw/static/js/main.1e36eac5.chunk.js", verify=False).text
-          for k in ("pcfexcel", "/api/WebSite/", "baseURL", "00918"):
-              for m in list(re.finditer(re.escape(k), b))[:4]: print("UJS", k, b[max(0, m.start()-400): m.start()+300].replace("\n", " "))
+          print("UWS", sorted(set(re.findall(r'WebSite/[A-Za-z0-9_]+', b))))
+          for k in ("announce", "datadate"):
+              for m in list(re.finditer(k, b))[:2]: print("UJS", k, b[max(0, m.start()-800): m.start()+200].replace("\n", " "))
+          r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": "J023"}, headers=H, timeout=30)
+          tt = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "|", re.sub(r"<script.*?</script>|<style.*?</style>", " ", r.text, flags=re.S))))
+          tt = re.sub(r"(\|\s*)+", "|", tt)
+          print("KRED", tt[:600]); print("KTAIL", tt[-2500:])
           PY
