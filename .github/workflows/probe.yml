@@ -6,15 +6,13 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -q requests pandas lxml
+      - run: pip install -q requests
       - run: |
-          cd scripts && python3 etf.py 009816 00918 00929 00881 00403A 00713 00685L 00922 00927 00940 00991A 2>&1 | cut -c1-1200
-          python3 -c "
-          import etf; from pathlib import Path
-          for k in list(etf.ETFS):
-              if k not in '009816 00918 00929 00881 00403A 00713 00685L 00922 00927 00940 00991A'.split(): etf.ETFS.pop(k)
-          etf.update(Path('../out'))"
-          cd .. && tar czf - out | base64 -w0 | sed 's/^/B64 /'; echo
+          python3 - <<'PY'
+          import requests
+          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36", "Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
+          for ep in ("BuySale/GetStocksList", "BuySale/GetFuturesList"):
+              for p in ({"FundCode": "DO"}, {"FundCode": "DO", "SearchDate": "2026-11-18"}):
+                  r = requests.get("https://cwapi.cathaysite.com.tw/api/" + ep, params=p, headers=H, timeout=30)
+                  print("CB", ep, p, r.status_code, r.text[:900])
+          PY
