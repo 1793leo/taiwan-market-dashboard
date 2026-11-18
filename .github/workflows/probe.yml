@@ -16,31 +16,25 @@ jobs:
               try: return requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k)
               except Exception as e: print("ERR", u, e); return None
           CH = {"Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
-          seen = {}
-          for p in ({"pageSize": 100}, {"PageSize": 100}, {"page": 2}, {"Page": 2}, {"pageIndex": 2}, {"PageIndex": 2}, {"page": 3}, {"page": 4}, {"page": 5}, {"PageIndex": 3}, {"PageIndex": 4}, {"PageIndex": 5}):
-              r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFList", params=p, h=CH)
-              try: res = r.json()["result"]
-              except Exception: continue
-              n = 0
-              for x in res:
-                  if x["stockCode"] not in seen: seen[x["stockCode"]] = x["fundCode"]; n += 1
-              print("CPAGE", p, len(res), "new", n)
-          print("CATHAY", {k: v for k, v in seen.items() if k in ("00881", "00922", "00878")}, len(seen))
-          for u in ("https://www.kgifund.com.tw/Fund/Detail?fundID=J023", "https://www.kgifund.com.tw/Fund/RedemptionList?fundNo=J023"):
-              r = get(u); t = r.text
-              print("KGI", u, r.status_code, len(t))
-              print("  KURL", sorted(set(re.findall(r'(?:url|href|src|action)\s*[:=]\s*["\']([^"\']*(?:/api/|Api|Get|Ajax|ajax|json|Json|Query|Search|Excel|Download)[^"\']*)', t)))[:60])
-              for k in ("持股", "股票代號", "申購買回清單", "ajax", "fetch(", "2330"):
-                  for m in list(re.finditer(re.escape(k), t))[:2]: print("  KHIT", k, re.sub(r"\s+", " ", t[max(0, m.start()-250): m.start()+300]))
-          r = get("https://www.fhtrust.com.tw/ETF/etf_detail/ETF21"); t = r.text
-          for s in sorted(set(re.findall(r'src="(/js/[^"]+)"', t))):
-              b = get("https://www.fhtrust.com.tw" + s).text
-              apis = sorted(set(re.findall(r'["\'`](/api/[A-Za-z0-9_/\-${}.+]*)', b)))
-              if apis: print("FHJS", s, apis[:80])
-          for k in ("/api/", "pcf", "Pcf", "PCF"):
-              for m in list(re.finditer(re.escape(k), t))[:4]: print("  FHIT", k, re.sub(r"\s+", " ", t[max(0, m.start()-200): m.start()+200]))
-          r = get("https://www.uobam.com.tw/ETFlandingpage", verify=False); t = r.text
-          print("UOB", r.status_code, sorted(set(re.findall(r'href="([^"]*(?:fund|ETF|etf)[^"]*)"', t)))[:60])
-          for m in list(re.finditer("00918", t))[:3]: print("  UHIT", re.sub(r"\s+", " ", t[max(0, m.start()-300): m.start()+100]))
-          print("UOBNEXT", sorted(set(re.findall(r'["\'](/_next/static/[^"\']+\.js|/api/[^"\']+)', t)))[:40])
+          for p in ({"stockCode": "00881"}, {"StockCode": "00881"}, {"code": "00881"}, {"Code": "00881"}):
+              r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFCode", params=p, h=CH); print("CCODE", p, r.status_code, r.text[:300])
+          h = get("https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3").text
+          js = re.findall(r'src="([^"]*main[^"]*\.js)"', h)[0]
+          b = get("https://www.cathaysite.com.tw/" + js).text
+          for k in ("GetETFList", "GetETFCode"):
+              for m in list(re.finditer(k, b))[:3]: print("CJS", k, b[max(0, m.start()-300): m.start()+300].replace("\n", " "))
+          t = get("https://www.fhtrust.com.tw/js/util_footer.js?6aab978e").text
+          for k in ("/api/ETFPcf", "/api/stockhold", "/api/assets"):
+              for m in list(re.finditer(re.escape(k), t))[:2]: print("FHJS", k, t[max(0, m.start()-500): m.start()+400].replace("\n", " "))
+          t = get("https://www.kgifund.com.tw/Fund/RedemptionList?fundNo=J023").text
+          i = t.find("function UpdateRedemption"); print("KJS", t[i: i+2500])
+          r = get("https://www.uobam.com.tw/fund/etf/pcf", verify=False); t = r.text
+          print("UPCF", r.status_code, len(t), sorted(set(re.findall(r'src="([^"]+\.js)"', t)))[:30])
+          for m in list(re.finditer("00918", t))[:3]: print("  UHIT", re.sub(r"\s+", " ", t[max(0, m.start()-300): m.start()+200]))
+          for s in sorted(set(re.findall(r'src="([^"]+\.js)"', t))):
+              u = s if s.startswith("http") else "https://www.uobam.com.tw" + s
+              b = get(u, verify=False)
+              if b is None: continue
+              apis = sorted(set(re.findall(r'["\'`]((?:https?://[^"\'`]*)?/api/[A-Za-z0-9_/\-.]*)', b.text)))
+              if apis: print("UJS", s, apis[:80])
           PY
