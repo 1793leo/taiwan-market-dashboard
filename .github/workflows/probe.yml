@@ -6,13 +6,18 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - run: pip install -q requests
       - run: |
-          curl -s -A "Mozilla/5.0 Chrome/130" "https://www.fhtrust.com.tw/js/etf_detail.js?20261105101005" > fh.js
-          grep -n -i -E "pcf|getAssets|stockhold|apiRequest|fundID|date" fh.js | head -80 | sed 's/^/FHL /' | cut -c1-260
-          curl -sk -A "Mozilla/5.0 Chrome/130" "https://www.uobam.com.tw/static/js/main.1e36eac5.chunk.js" > u.js
           python3 - <<'PY'
-          import re
-          b = open("u.js").read()
-          for k in ("WebSitePcfRequest", "etfpcf", "ETFPCF"):
-              for m in list(re.finditer(k, b))[:3]: print("UCTX", k, b[max(0, m.start()-700): m.start()+500].replace("\n", " "))
+          import re, requests, json, warnings
+          warnings.filterwarnings("ignore")
+          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9", "Accept": "application/json"}
+          def show(tag, r): print(tag, r.status_code, r.headers.get("content-type"), r.text[:2500].replace("\n", " "))
+          for q in ("fundID=ETF21&pcfDate=2026/11/18", "fundID=ETF23&pcfDate=2026/11/18"):
+              show("FHPCF " + q, requests.get("https://www.fhtrust.com.tw/api/ETFPcf?" + q, headers=H, timeout=30))
+          show("FHAS", requests.get("https://www.fhtrust.com.tw/api/assets?fundID=ETF21&qDate=2026/11/17", headers=H, timeout=30))
+          for base in ("https://www.uobam.com.tw/api/json/reply/", "https://www.uobam.com.tw/json/reply/", "https://www.uobam.com.tw/api/"):
+              for req in ("WebSiteETFRequest",):
+                  try: show("UOB " + base + req, requests.get(base + req, headers=H, timeout=30, verify=False))
+                  except Exception as e: print("UOB", base, e)
           PY
