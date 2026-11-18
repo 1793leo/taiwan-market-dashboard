@@ -21,6 +21,7 @@ import block
 import cb
 import post
 import etf
+import trust
 
 ROOT = Path(__file__).resolve().parent.parent
 WINDOWS = (5, 20)
@@ -125,6 +126,7 @@ def build(data: Path, site: Path, start: dt.date | None = None):
     cb.write(data, site)
     post.write(data, site)
     etf.write(data, site)
+    trust.write(data, site)
     bl = data / "broker" / "latest.json"
     if bl.exists():
         shutil.copy2(bl, site / "data" / "broker.json")

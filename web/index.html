@@ -26,6 +26,7 @@
     <button class="tab" data-tab="otc-hot" role="tab">櫃買熱門股</button>
     <button class="tab" data-tab="post" role="tab">盤後交易</button>
     <button class="tab" data-tab="etf" role="tab">ETF</button>
+    <button class="tab" data-tab="trust" role="tab">投信異常賣超</button>
   </nav>
 </header>
 
@@ -147,6 +148,40 @@
           </table>
         </div>
         <p class="note">資料來源：臺灣證券交易所「鉅額交易日成交資訊－單一證券」、證券櫃檯買賣中心「鉅額交易個股最新行情」，僅列普通股（排除 ETF、權證、特別股、TDR、可轉債），預設依市值由小到大排列；市值＝當日收盤價 × 已發行股數。每個交易日晚上 9 點更新，點選欄位標題可改變排序。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-trust" class="panel">
+    <div class="bk-layout">
+      <aside class="bk-cal ct-col">
+        <div class="cal-head">
+          <button id="tr-prev" class="cal-nav" aria-label="上個月">‹</button>
+          <b id="tr-title">—</b>
+          <button id="tr-next" class="cal-nav" aria-label="下個月">›</button>
+        </div>
+        <div class="cal-grid cal-wk"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div id="tr-days" class="cal-grid"></div>
+        <p class="cal-tip">日期下方數字為當日符合條件的檔數，點選日期查看明細。</p>
+      </aside>
+      <div class="bk-main">
+        <div class="ct-head"><span id="tr-date" class="pill">載入中…</span></div>
+        <div class="cards bk-cards">
+          <div class="card"><div class="k">符合檔數</div><div class="v" id="tr-n">—</div><div class="d" id="tr-nsub">—</div></div>
+          <div class="card"><div class="k">合計投信賣超</div><div class="v" id="tr-sum">—</div><div class="d" id="tr-sumsub">—</div></div>
+          <div class="card"><div class="k">賣超占比最高</div><div class="v" id="tr-max">—</div><div class="d" id="tr-maxsub">—</div></div>
+        </div>
+        <div class="ct-col bk-box">
+          <table class="bk-table tr-table">
+            <thead><tr>
+              <th data-k="0" class="hide-sm">代號</th><th data-k="1">名稱</th><th data-k="2" class="hide-sm">市場</th>
+              <th data-k="3" class="r">投信賣超(張)</th><th data-k="4" class="r">成交量(張)</th>
+              <th data-k="5" class="r">賣超占成交量</th><th data-k="6" class="r hide-sm">收盤</th><th data-k="7" class="r">漲跌</th>
+            </tr></thead>
+            <tbody id="tr-body"></tbody>
+          </table>
+        </div>
+        <p class="note">篩選條件：投信當日淨賣超張數 ＞ 當日成交量的 10%，僅列普通股（排除 ETF 等）。投信買賣超取自富邦 e 點通「投信買賣超一日排行」（上市、上櫃各取賣超前 50 名），成交量取自證交所／櫃買中心個股日成交資訊。每個交易日下午 4 點更新，晚上會再補抓一次；點選欄位標題可改變排序。</p>
       </div>
     </div>
   </section>
@@ -337,5 +372,6 @@
 <script src="assets/broker.js"></script>
 <script src="assets/post.js"></script>
 <script src="assets/etf.js"></script>
+<script src="assets/trust.js"></script>
 </body>
 </html>
