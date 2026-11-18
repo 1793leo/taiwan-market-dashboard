@@ -123,8 +123,9 @@ def write(data: Path, site: Path):
             ratio = -r.lots / vl
             if ratio > THRESHOLD:
                 rows.append([r.code, r.name, "上市" if r.market == "twse" else "上櫃", -int(r.lots), round(vl),
-                             round(ratio * 100, 1), r.close, r.change])
-        rows.sort(key=lambda x: -x[5])
+                             round(ratio * 100, 1), r.close, r.change,
+                             None if pd.isna(r.close) else round(-r.lots * 1000 * r.close)])   # [8] 賣超金額（張數×收盤價）
+        rows.sort(key=lambda x: -(x[8] or 0))
         months.setdefault(d[:7], {})[d] = rows
         index[d] = {"n": len(rows), "pending": pending and not rows}
     for ym, m in months.items():

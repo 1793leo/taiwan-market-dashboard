@@ -169,19 +169,19 @@
         <div class="cards bk-cards">
           <div class="card"><div class="k">符合檔數</div><div class="v" id="tr-n">—</div><div class="d" id="tr-nsub">—</div></div>
           <div class="card"><div class="k">合計投信賣超</div><div class="v" id="tr-sum">—</div><div class="d" id="tr-sumsub">—</div></div>
-          <div class="card"><div class="k">賣超占比最高</div><div class="v" id="tr-max">—</div><div class="d" id="tr-maxsub">—</div></div>
+          <div class="card"><div class="k">賣超金額最大</div><div class="v" id="tr-max">—</div><div class="d" id="tr-maxsub">—</div></div>
         </div>
         <div class="ct-col bk-box">
           <table class="bk-table tr-table">
             <thead><tr>
               <th data-k="0" class="hide-sm">代號</th><th data-k="1">名稱</th><th data-k="2" class="hide-sm">市場</th>
-              <th data-k="3" class="r">投信賣超(張)</th><th data-k="4" class="r">成交量(張)</th>
+              <th data-k="8" class="r">投信賣超金額</th><th data-k="3" class="r">投信賣超(張)</th><th data-k="4" class="r hide-sm">成交量(張)</th>
               <th data-k="5" class="r">賣超占成交量</th><th data-k="6" class="r hide-sm">收盤</th><th data-k="7" class="r">漲跌</th>
             </tr></thead>
             <tbody id="tr-body"></tbody>
           </table>
         </div>
-        <p class="note">篩選條件：投信當日淨賣超張數 ＞ 當日成交量的 10%，僅列普通股（排除 ETF 等）。投信買賣超取自富邦 e 點通「投信買賣超一日排行」（上市、上櫃各取賣超前 50 名），成交量取自證交所／櫃買中心個股日成交資訊。每個交易日下午 4 點更新，晚上會再補抓一次；點選欄位標題可改變排序。</p>
+        <p class="note">篩選條件：投信當日淨賣超張數 ＞ 當日成交量的 10%，僅列普通股（排除 ETF 等），依投信賣超金額由大到小排行；賣超金額＝賣超張數 × 1,000 × 當日收盤價（估算）。投信買賣超取自富邦 e 點通「投信買賣超一日排行」（上市、上櫃各取賣超前 50 名），成交量取自證交所／櫃買中心個股日成交資訊。每個交易日下午 4 點更新，晚上會再補抓一次；點選欄位標題可改變排序。</p>
       </div>
     </div>
   </section>

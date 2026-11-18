@@ -1,5 +1,6 @@
 (async function () {
   const $ = (id) => document.getElementById(id);
+  const yi = (v) => v == null ? '—' : (v >= 1e8 ? fmt(v / 1e8, 2) + ' 億' : fmt(v / 1e4, 0) + ' 萬');
   const fmt = (n, d = 0) => n == null ? '—' : n.toLocaleString('zh-TW', { minimumFractionDigits: d, maximumFractionDigits: d });
   const px = (p) => p == null ? '—' : fmt(p, p >= 1000 ? 0 : 2);
   const chg = (c) => c == null ? '—' : `<span class="${c > 0 ? 'up' : c < 0 ? 'down' : ''}">${c > 0 ? '+' : ''}${fmt(c, Math.abs(c) >= 100 ? 0 : 2)}</span>`;
@@ -25,7 +26,7 @@
 
   const first = allDates[0], last = allDates[allDates.length - 1];
   let view = last.slice(0, 7), selected = last;
-  let sortKey = 5, sortDir = -1;        // 預設依賣超占成交量由大到小
+  let sortKey = 8, sortDir = -1;        // 預設依投信賣超金額由大到小
   let rows = [];
 
   function renderCal() {
@@ -77,12 +78,12 @@
     const tw = rows.filter((r) => r[2] === '上市').length;
     $('tr-n').textContent = `${rows.length} 檔`;
     $('tr-nsub').textContent = info.pending ? '個股成交量尚未更新' : `上市 ${tw} · 上櫃 ${rows.length - tw}`;
-    const sum = rows.reduce((a, r) => a + r[3], 0);
-    $('tr-sum').textContent = rows.length ? `${fmt(sum)} 張` : '—';
-    $('tr-sumsub').textContent = rows.length ? `符合條件個股合計` : '—';
-    const top = rows.reduce((a, r) => (!a || r[5] > a[5] ? r : a), null);
+    const sum = rows.reduce((a, r) => a + (r[8] || 0), 0);
+    $('tr-sum').textContent = rows.length ? yi(sum) : '—';
+    $('tr-sumsub').textContent = rows.length ? `${fmt(rows.reduce((a, r) => a + r[3], 0))} 張 · 符合條件個股合計` : '—';
+    const top = rows.reduce((a, r) => (!a || (r[8] || 0) > (a[8] || 0) ? r : a), null);
     $('tr-max').textContent = top ? top[1] : '—';
-    $('tr-maxsub').textContent = top ? `${top[0]} · ${fmt(top[5], 1)}%（${fmt(top[3])} / ${fmt(top[4])} 張）` : '—';
+    $('tr-maxsub').textContent = top ? `${top[0]} · ${yi(top[8])} · 占成交量 ${fmt(top[5], 1)}%` : '—';
   }
 
   function renderTable() {
@@ -99,9 +100,9 @@
     const empty = info.pending ? '個股成交量尚未更新，稍後重新整理' : '當日沒有投信賣超超過成交量 10% 的普通股';
     $('tr-body').innerHTML = sorted.length ? sorted.map((r) => `<tr>
       <td class="mono hide-sm">${r[0]}</td><td><b>${r[1]}</b><em class="sm-code">${r[0]}</em></td><td class="hide-sm muted">${r[2]}</td>
-      <td class="r mono b down">${fmt(r[3])}</td><td class="r mono">${fmt(r[4])}</td>
+      <td class="r mono b down">${yi(r[8])}</td><td class="r mono">${fmt(r[3])}</td><td class="r mono hide-sm">${fmt(r[4])}</td>
       <td class="r mono b">${fmt(r[5], 1)}%</td><td class="r mono hide-sm">${px(r[6])}</td><td class="r mono">${chg(r[7])}</td>
-    </tr>`).join('') : `<tr><td colspan="8" class="none">${empty}</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="9" class="none">${empty}</td></tr>`;
   }
   document.querySelectorAll('.tr-table th').forEach((th) => th.addEventListener('click', () => {
     const k = +th.dataset.k;
