@@ -38,8 +38,27 @@ ETFS = {
     "006208": ("fubon", "006208"),
     "00631L": ("yuanta", "00631L"),
     "00981A": ("ezmoney", "49YTW"),
+    "009816": ("kgi", "J023"),
+    "00918": ("uob", "88329556"),
+    "00929": ("fuhhwa", "ETF21"),
+    "00881": ("cathay", "CR"),
+    "00403A": ("ezmoney", "63YTW"),
+    "00713": ("yuanta", "00713"),
+    "00685L": ("capital", "094"),
+    "00922": ("cathay", "DO"),
+    "00927": ("capital", "366"),
+    "00940": ("yuanta", "00940"),
+    "00991A": ("fuhhwa", "ETF23"),
 }
-ISSUER = {"yuanta": "元大", "cathay": "國泰", "capital": "群益", "fubon": "富邦", "ezmoney": "統一"}
+# 顯示名稱（元大以官網名稱為準）
+NAMES = {
+    "00878": "國泰永續高股息", "00919": "群益台灣精選高息", "006208": "富邦台50", "00981A": "主動統一台股增長",
+    "009816": "凱基台灣TOP50", "00918": "大華優利高填息30", "00929": "復華台灣科技優息", "00881": "國泰台灣科技龍頭",
+    "00403A": "主動統一升級50", "00685L": "群益臺灣加權正2", "00922": "國泰台灣領袖50", "00927": "群益半導體收益",
+    "00991A": "主動復華未來50",
+}
+ISSUER = {"yuanta": "元大", "cathay": "國泰", "capital": "群益", "fubon": "富邦", "ezmoney": "統一",
+          "kgi": "凱基", "uob": "大華銀", "fuhhwa": "復華"}
 ROOT = Path(__file__).resolve().parent
 UA = {"User-Agent": twdata.HEADERS["User-Agent"], "Accept-Language": "zh-TW,zh;q=0.9"}
 
@@ -100,6 +119,8 @@ def stocks_value(stocks):
 def fetch_yuanta(code: str, fid: str) -> dict:
     r = requests.get(f"https://www.yuantaetfs.com/tradeInfo/pcf/{fid}", timeout=60, headers=UA)
     r.raise_for_status()
+    if "maintenance" in r.url:
+        raise RuntimeError("元大網站維護中，下次排程再抓")
     out = subprocess.run(["node", str(ROOT / "etf_extract.js")], input=r.text, capture_output=True,
                          text=True, timeout=60)
     if out.returncode != 0:
@@ -357,14 +378,141 @@ def fetch_cathay(code: str, fid: str) -> dict:
             "pcf_items": items, "memo": []}
 
 
+# ---------------------------------------------------------------- 凱基
+def _table_text(html_: str) -> str:
+    t = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html_, flags=re.S | re.I)
+    t = htmlmod.unescape(re.sub(r"<[^>]+>", "|", t))
+    return re.sub(r"(\|\s*)+", "|", re.sub(r"\s+", " ", t))
+
+
+def fetch_kgi(code: str, fid: str) -> dict:
+    r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": fid}, timeout=60,
+                      headers={**UA, "Referer": f"https://www.kgifund.com.tw/Fund/RedemptionList?fundNo={fid}"})
+    r.raise_for_status()
+    t = _table_text(r.text)
+    f = lambda label: _after(t, label)  # noqa: E731
+    ann = iso(re.search(r"(\d{4}/\d{1,2}/\d{1,2})\s*\|?\s*現金申購買回清單", t).group(1))
+    dm = re.search(r"\((\d{4}/\d{1,2}/\d{1,2})\)", t)
+    date = iso(dm.group(1)) if dm else prev_trading_day(ann)
+    stocks, futures = [], []
+    seg = t.split("|股票|股票代號|股票名稱|股數|權重(%)|", 1)
+    if len(seg) == 2:
+        body = seg[1].split("|期貨|", 1)[0]
+        for m in re.finditer(r"([0-9A-Z]{4,6})\s*\|([^|]+)\|([\d,]+)\|([\d.]+)\|", body):
+            stocks.append({"c": m.group(1), "n": m.group(2).strip(), "q": inum(m.group(3)), "w": num(m.group(4))})
+    fseg = t.split("|期貨代號|期貨名稱|口數|權重(%)|契約年月|", 1)
+    if len(fseg) == 2:
+        for m in re.finditer(r"([A-Z0-9]+)\s*\|([^|]+)\|(-?[\d,]+)\|(-?[\d.]+)\|(\d{4})/(\d{1,2})", fseg[1]):
+            futures.append({"c": m.group(1), "n": m.group(2).strip(), "ym": f"{m.group(5)}{int(m.group(6)):02d}",
+                            "q": inum(m.group(3)), "w": num(m.group(4))})
+    diff = inum(f("與前日已發行單位差異數"))
+    s = {"totalav": num(f("基金淨資產價值")), "nav": num(f("每受益權單位淨資產價值")), "osunit": inum(f("已發行受益權單位總數")),
+         "issuesdiff": diff, "baseunit": 500000}
+    items = [["公告日期（適用申購日）", ann, "date"],
+             ["每申購基數之預收申購總價金", num(f("預收申購總價金")), "NTD"],
+             ["每現金申購單位約當市值", num(f("約當市值")), "NTD"],
+             ["每基數申購總價金差異額", num(f("申購總價金差異額")), "NTD"],
+             ["每基數實際申購總價金", num(f("實際申購總價金")), "NTD"],
+             ["與前日已發行單位差異數", diff, "sgn"]]
+    return {"code": code, "date": date, "name": code, "updated": ann, "ann_date": ymd(ann), "summary": s,
+            "stocks": stocks, "futures": futures, "inkind": [], "pcf_items": items, "memo": []}
+
+
+# ---------------------------------------------------------------- 大華銀
+def fetch_uob(code: str, fid: str) -> dict:
+    import urllib3
+    urllib3.disable_warnings()
+    # 大華銀官網憑證鏈不完整（缺中繼憑證），只讀公開資料，此網域略過憑證驗證
+    r = requests.get("https://www.uobam.com.tw/json/reply/WebSitePcfRequest", params={"fundID": fid, "pcfDate": ""},
+                     headers={**UA, "Accept": "application/json"}, timeout=60, verify=False)
+    r.raise_for_status()
+    j = r.json()
+    date, ann = iso(jsdate(j.get("datadate"))), iso(jsdate(j.get("announce")))
+    stocks, futures = [], []
+    for x in j.get("result") or []:
+        if x.get("kind") == "stock":
+            stocks.append({"c": str(x.get("code")).strip(), "n": (x.get("cName") or "").strip(), "q": inum(x.get("qty")),
+                           "w": num(x.get("weight"))})
+        elif x.get("kind") == "futures":
+            futures.append({"c": str(x.get("code")).strip(), "n": (x.get("cName") or "").strip(),
+                            "ym": re.sub(r"\D", "", str(x.get("dym") or ""))[:6] or None, "q": inum(x.get("qty")),
+                            "w": num(x.get("weight"))})
+    diff = inum(j.get("issuesDiff"))
+    s = {"totalav": num(j.get("totalAV")), "nav": num(j.get("nav")), "osunit": inum(j.get("totalIssues")),
+         "issuesdiff": diff, "baseunit": inum(j.get("baseValue"))}
+    items = [["公告日期（適用申購日）", ann, "date"],
+             ["每現金申購／買回基數之受益權單位數", s["baseunit"], ""],
+             ["預收申購總價金", num(j.get("basketValue")), "NTD"],
+             ["每基數約當市值", num(j.get("estcValue")), "NTD"],
+             ["實際申購總價金", num(j.get("basketValueP")), "NTD"],
+             ["總價金差異額", num(j.get("diffBasketValue")), "NTD"],
+             ["與前日已發行單位差異數", diff, "sgn"]]
+    return {"code": code, "date": date, "name": code, "updated": jsdate(j.get("publish")), "ann_date": ymd(ann),
+            "summary": s, "stocks": stocks, "futures": futures, "inkind": [], "pcf_items": items, "memo": []}
+
+
+# ---------------------------------------------------------------- 復華
+def fetch_fuhhwa(code: str, fid: str) -> dict:
+    H = {**UA, "Accept": "application/json", "Referer": f"https://www.fhtrust.com.tw/ETF/etf_detail/{fid}"}
+    today = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
+    a = None
+    for back in range(8):  # 由今天往回找最近一個有資料的日子
+        d = today - dt.timedelta(days=back)
+        r = requests.get("https://www.fhtrust.com.tw/api/assets", params={"fundID": fid, "qDate": f"{d:%Y/%m/%d}"},
+                         headers=H, timeout=60)
+        r.raise_for_status()
+        res = (r.json().get("result") or [{}])[0]
+        if res.get("detail"):
+            a = res
+            break
+    if not a:
+        raise RuntimeError(f"{code} 近一週無持股資料")
+    stocks, futures = [], []
+    for x in a["detail"]:
+        w = num(x.get("prate_addaccint"))
+        if x.get("ftype") == "股票":
+            stocks.append({"c": str(x.get("stockid")).strip(), "n": (x.get("stockname") or "").strip(),
+                           "q": inum(x.get("qshare")), "w": w})
+        elif x.get("ftype") == "期貨":
+            nm = (x.get("stockname") or "").strip()
+            m = re.search(r"(\d{4})/?(\d{2})", str(x.get("stockid")) + nm)
+            futures.append({"c": str(x.get("stockid")).strip(), "n": nm, "ym": m.group(1) + m.group(2) if m else None,
+                            "q": inum(x.get("qshare")), "w": w})
+    date = iso(a.get("dDate"))
+    tot = {x.get("ftype"): num(x.get("tot_mvalue")) for x in a.get("result") or [] if x.get("ftype") in ("股票", "期貨")}
+    p = {}
+    for back in range(8):
+        d = today - dt.timedelta(days=back)
+        r = requests.get("https://www.fhtrust.com.tw/api/ETFPcf", params={"fundID": fid, "pcfDate": f"{d:%Y/%m/%d}"},
+                         headers=H, timeout=60)
+        rr = (r.json().get("result") or [{}]) if r.ok else [{}]
+        if rr and rr[0].get("postDate"):
+            p = rr[0]
+            break
+    same = iso(p.get("actCashDiffDate")) == date
+    s = {"totalav": num(a.get("pcf_FundNav")), "nav": num(a.get("pcf_Fundpnav")), "osunit": inum(a.get("pcf_FundQissue")),
+         "issuesdiff": inum(p.get("qDiff")) if same else None, "baseunit": inum(p.get("sharesPerUnit")),
+         "stkvalues": tot.get("股票"), "futvalues": tot.get("期貨")}
+    items = [["公告日期（適用申購日）", iso(p.get("postDate")), "date"],
+             ["每現金申購／買回基數之受益權單位數", s["baseunit"], ""],
+             ["預收申購總價金", num(p.get("preBuyVal")), "NTD"],
+             ["每基數約當市值", num(p.get("mVal")), "NTD"],
+             ["實際申購總價金差額", num(p.get("actCashDiff")), "NTD"],
+             ["實際申購總價金", num(p.get("actBuyVal")), "NTD"],
+             ["與前日已發行單位差異數", inum(p.get("qDiff")), "sgn"]]
+    return {"code": code, "date": date, "name": code, "updated": p.get("postDate"), "ann_date": ymd(p.get("postDate")),
+            "summary": s, "stocks": stocks, "futures": futures, "inkind": [], "pcf_items": items, "memo": []}
+
+
 FETCH = {"yuanta": fetch_yuanta, "capital": fetch_capital, "fubon": fetch_fubon, "ezmoney": fetch_ezmoney,
-         "cathay": fetch_cathay}
+         "cathay": fetch_cathay, "kgi": fetch_kgi, "uob": fetch_uob, "fuhhwa": fetch_fuhhwa}
 
 
 def fetch(code: str) -> dict:
     issuer, fid = ETFS[code]
     doc = FETCH[issuer](code, fid)
     doc["issuer"] = ISSUER[issuer]
+    doc["name"] = NAMES.get(code) or doc["name"]
     doc["stocks"] = [s for s in doc["stocks"] if s["c"] and s["w"] is not None]
     return doc
 

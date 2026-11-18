@@ -6,14 +6,15 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - run: pip install -q requests
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests pandas lxml
       - run: |
-          python3 - <<'PY'
-          import requests, warnings
-          warnings.filterwarnings("ignore")
-          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36", "Accept": "application/json"}
-          for fid in ("00515073", "00580854", "00580860", "00648622", "00719554", "88329556"):
-              for d in ("", "2026/11/18"):
-                  r = requests.get("https://www.uobam.com.tw/json/reply/WebSitePcfRequest", params={"fundID": fid, "pcfDate": d}, headers=H, timeout=30, verify=False)
-                  print("UPCF", fid, repr(d), r.status_code, r.text[:1800].replace("\n", " "))
-          PY
+          cd scripts && python3 etf.py 009816 00918 00929 00881 00403A 00713 00685L 00922 00927 00940 00991A 2>&1 | cut -c1-1200
+          python3 -c "
+          import etf; from pathlib import Path
+          for k in list(etf.ETFS):
+              if k not in '009816 00918 00929 00881 00403A 00713 00685L 00922 00927 00940 00991A'.split(): etf.ETFS.pop(k)
+          etf.update(Path('../out'))"
+          cd .. && tar czf - out | base64 -w0 | sed 's/^/B64 /'; echo
