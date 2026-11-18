@@ -124,22 +124,22 @@
     const s = doc.summary, a = doc.ann_date || '';
     const item = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
     $('etf-kindbox').hidden = !doc.inkind.length;
+    const kindNote = doc.inkind.length ? '' : '<p class="note" style="margin:8px 0 0">此日申購買回清單無實物申購籃（現金申購／買回）。</p>';
     if (doc.pcf_items) {
       const val = ([, v, t]) => v == null ? '—' : t === 'date' ? v.replaceAll('-', '/') : t === 'txt' ? v
         : t === 'NTD' ? 'NTD ' + fmt(v) : t === 'sgn' ? sgn(v) : fmt(v);
-      $('etf-pcfinfo').innerHTML = `<div class="etf-grid">${doc.pcf_items.map((x) => item(x[0], val(x))).join('')}</div>
-        ${doc.inkind.length ? '' : '<p class="note" style="margin:8px 0 0">此檔為現金申購／買回，無實物申購籃。</p>'}`;
-      $('etf-kind').innerHTML = '';
-      return;
-    }
-    $('etf-pcfinfo').innerHTML = `<div class="etf-grid">
+      $('etf-pcfinfo').innerHTML = `<div class="etf-grid">${doc.pcf_items.map((x) => item(x[0], val(x))).join('')}</div>${kindNote}`;
+    } else {
+      const u = doc.inkind.length ? '實物' : '現金';
+      $('etf-pcfinfo').innerHTML = `<div class="etf-grid">
       ${item('公告日期（適用申購日）', a ? `${a.slice(0, 4)}/${a.slice(4, 6)}/${a.slice(6)}` : '—')}
-      ${item('每實物申購單位之受益權單位數', fmt(s.baseunit))}
-      ${item('每實物申購單位約當市值', 'NTD ' + fmt(s.estcvalue))}
-      ${item('每實物申購單位估計現金差額', 'NTD ' + fmt(s.estdvalue))}
-      ${item('每實物申購單位實際現金差額（前一日）', 'NTD ' + fmt(s.cashdiff))}
+      ${item(`每${u}申購單位之受益權單位數`, fmt(s.baseunit))}
+      ${item(`每${u}申購單位約當市值`, 'NTD ' + fmt(s.estcvalue))}
+      ${item(`每${u}申購單位估計現金差額`, 'NTD ' + fmt(s.estdvalue))}
+      ${item(`每${u}申購單位實際現金差額（前一日）`, 'NTD ' + fmt(s.cashdiff))}
       ${item('與前日已發行單位差異數', sgn(s.issuesdiff))}
-    </div>`;
+    </div>${kindNote}`;
+    }
     $('etf-kind').innerHTML = doc.inkind.map((k, i) => `<tr><td class="muted mono">${i + 1}</td><td class="mono">${k.c}</td><td><b>${k.n}</b></td>
       <td class="r mono">${fmt(k.q)}</td><td class="r">${k.cash === 'Y' ? '<span class="up">是</span>' : '否'}</td><td class="r">${k.min === 'Y' ? '是' : '否'}</td></tr>`).join('');
   }
