@@ -15,22 +15,15 @@ jobs:
           def get(u, **k):
               try: return requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k)
               except Exception as e: print("ERR", u, e); return None
-          t = get("https://www.fhtrust.com.tw/ETF/etf_detail/ETF21").text
-          print("FHSRC", sorted(set(re.findall(r'src="([^"]+\.js[^"]*)"', t))))
-          for s in sorted(set(re.findall(r'src="(/js/[^"]+)"', t))):
-              b = get("https://www.fhtrust.com.tw" + s).text
-              for k in ("getETFPcf(", "getAssets(", "assetsExcel"):
-                  for m in list(re.finditer(re.escape(k), b))[:2]: print("FHC", s, k, b[max(0, m.start()-600): m.start()+500].replace("\n", " "))
-          # inline scripts
-          for m in re.finditer(r"<script>(.*?)</script>", t, re.S):
-              sc = m.group(1)
-              if "getETFPcf" in sc or "getAssets" in sc: print("FHINL", sc[:3000].replace("\n", " "))
+          b = get("https://www.fhtrust.com.tw/js/etf_detail.js?20261105101005").text
+          print("FHLEN", len(b))
+          for k in ("Pcf", "Assets", "assets", "stockhold"):
+              for m in list(re.finditer(k, b))[:3]: print("FHD", k, b[max(0, m.start()-500): m.start()+700].replace("\n", " "))
           b = get("https://www.uobam.com.tw/static/js/main.1e36eac5.chunk.js", verify=False).text
-          print("UWS", sorted(set(re.findall(r'WebSite/[A-Za-z0-9_]+', b))))
-          for k in ("announce", "datadate"):
-              for m in list(re.finditer(k, b))[:2]: print("UJS", k, b[max(0, m.start()-800): m.start()+200].replace("\n", " "))
-          r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": "J023"}, headers=H, timeout=30)
-          tt = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "|", re.sub(r"<script.*?</script>|<style.*?</style>", " ", r.text, flags=re.S))))
-          tt = re.sub(r"(\|\s*)+", "|", tt)
-          print("KRED", tt[:600]); print("KTAIL", tt[-2500:])
+          print("UPCFTOK", sorted(set(re.findall(r'[A-Za-z_/.]*[Pp][Cc][Ff][A-Za-z_/]*', b)))[:80])
+          print("UHOSTS", sorted(set(re.findall(r'https?://[a-zA-Z0-9.\-]+', b)))[:40])
+          i = b.find('"/api/'); 
+          print("UAPIS", sorted(set(re.findall(r'["\'](/?api/[^"\']*)', b)))[:80])
+          print("UWEB", sorted(set(re.findall(r'["\']([A-Za-z]*/[A-Za-z]+\?fundID=)', b)))[:80])
+          for m in list(re.finditer(r"responseStatus", b))[:2]: print("URS", b[max(0, m.start()-1500): m.start()+100].replace("\n", " "))
           PY
