@@ -13,33 +13,34 @@ jobs:
           warnings.filterwarnings("ignore")
           H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
           def get(u, **k):
-              try:
-                  return requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k)
+              try: return requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k)
               except Exception as e: print("ERR", u, e); return None
-          r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFList", h={"Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"})
-          print("CATHAYLIST", r.status_code, r.text[:3000] if r is not None else None)
-          for fid in ("504","399","500","501","503","502","378","389","390","365","388","366","069","093","094","095","102","103"):
-              try:
-                  rr = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": fid, "date": None}, headers=H, timeout=15)
-                  p = (rr.json().get("data") or {}).get("pcf") or {}
-                  print("CAP", fid, p.get("fundName"), p.get("date2"))
-              except Exception as e: print("CAP", fid, "ERR", e)
-          for u in ("https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=49YTW",):
-              t = get(u).text
-              for m in re.finditer(r"fundCode=([0-9A-Za-z]+)", t): print("EZ", m.group(1), re.sub(r"<[^>]+>|\s+", " ", t[max(0,m.start()-10): m.end()+150])[:160])
-          r = get("https://www.kgifund.com.tw/Home/ETF")
-          if r is not None:
-              print("KGI", r.status_code, sorted(set(re.findall(r'href="([^"]*(?:Fund|ETF|Etf)[^"]*)"', r.text)))[:80])
-              for m in list(re.finditer("009816", r.text))[:4]: print("  KHIT", re.sub(r"\s+", " ", r.text[max(0, m.start()-300): m.start()+200]))
-          r = get("https://www.fhtrust.com.tw/ETF/etf_detail/ETF21")
-          if r is not None:
-              t = r.text
-              print("FH", r.status_code, len(t), sorted(set(re.findall(r'(?:url|href|src)\s*[:=]\s*["\']([^"\']*(?:api|Api|API|json|ajax|pcf|PCF|asset|Asset|holding)[^"\']*)', t)))[:60])
-              for k in ("申購買回清單", "持股", "fetch(", "axios", "$.ajax", "ETF21"):
-                  for m in list(re.finditer(re.escape(k), t))[:2]: print("  FHIT", k, re.sub(r"\s+", " ", t[max(0, m.start()-200): m.start()+300]))
-          for u in ("https://www.uobam.com.tw/", "http://www.uobam.com.tw/", "https://uobam.com.tw/"):
-              r = get(u, verify=False)
-              if r is not None:
-                  print("UOB", u, r.status_code, r.url, len(r.text), sorted(set(re.findall(r'href="([^"]*(?:ETF|etf|Fund|fund|PCF|pcf)[^"]*)"', r.text)))[:60])
-                  for m in list(re.finditer("00918", r.text))[:3]: print("  UHIT", re.sub(r"\s+", " ", r.text[max(0, m.start()-300): m.start()+200]))
+          CH = {"Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
+          seen = {}
+          for p in ({"pageSize": 100}, {"PageSize": 100}, {"page": 2}, {"Page": 2}, {"pageIndex": 2}, {"PageIndex": 2}, {"page": 3}, {"page": 4}, {"page": 5}, {"PageIndex": 3}, {"PageIndex": 4}, {"PageIndex": 5}):
+              r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFList", params=p, h=CH)
+              try: res = r.json()["result"]
+              except Exception: continue
+              n = 0
+              for x in res:
+                  if x["stockCode"] not in seen: seen[x["stockCode"]] = x["fundCode"]; n += 1
+              print("CPAGE", p, len(res), "new", n)
+          print("CATHAY", {k: v for k, v in seen.items() if k in ("00881", "00922", "00878")}, len(seen))
+          for u in ("https://www.kgifund.com.tw/Fund/Detail?fundID=J023", "https://www.kgifund.com.tw/Fund/RedemptionList?fundNo=J023"):
+              r = get(u); t = r.text
+              print("KGI", u, r.status_code, len(t))
+              print("  KURL", sorted(set(re.findall(r'(?:url|href|src|action)\s*[:=]\s*["\']([^"\']*(?:/api/|Api|Get|Ajax|ajax|json|Json|Query|Search|Excel|Download)[^"\']*)', t)))[:60])
+              for k in ("持股", "股票代號", "申購買回清單", "ajax", "fetch(", "2330"):
+                  for m in list(re.finditer(re.escape(k), t))[:2]: print("  KHIT", k, re.sub(r"\s+", " ", t[max(0, m.start()-250): m.start()+300]))
+          r = get("https://www.fhtrust.com.tw/ETF/etf_detail/ETF21"); t = r.text
+          for s in sorted(set(re.findall(r'src="(/js/[^"]+)"', t))):
+              b = get("https://www.fhtrust.com.tw" + s).text
+              apis = sorted(set(re.findall(r'["\'`](/api/[A-Za-z0-9_/\-${}.+]*)', b)))
+              if apis: print("FHJS", s, apis[:80])
+          for k in ("/api/", "pcf", "Pcf", "PCF"):
+              for m in list(re.finditer(re.escape(k), t))[:4]: print("  FHIT", k, re.sub(r"\s+", " ", t[max(0, m.start()-200): m.start()+200]))
+          r = get("https://www.uobam.com.tw/ETFlandingpage", verify=False); t = r.text
+          print("UOB", r.status_code, sorted(set(re.findall(r'href="([^"]*(?:fund|ETF|etf)[^"]*)"', t)))[:60])
+          for m in list(re.finditer("00918", t))[:3]: print("  UHIT", re.sub(r"\s+", " ", t[max(0, m.start()-300): m.start()+100]))
+          print("UOBNEXT", sorted(set(re.findall(r'["\'](/_next/static/[^"\']+\.js|/api/[^"\']+)', t)))[:40])
           PY
