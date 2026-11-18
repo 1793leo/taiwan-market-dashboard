@@ -9,15 +9,11 @@ jobs:
       - run: pip install -q requests
       - run: |
           python3 - <<'PY'
-          import re, requests, json, warnings
+          import requests, warnings
           warnings.filterwarnings("ignore")
-          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9", "Accept": "application/json"}
-          def show(tag, r): print(tag, r.status_code, r.headers.get("content-type"), r.text[:2500].replace("\n", " "))
-          for q in ("fundID=ETF21&pcfDate=2026/11/18", "fundID=ETF23&pcfDate=2026/11/18"):
-              show("FHPCF " + q, requests.get("https://www.fhtrust.com.tw/api/ETFPcf?" + q, headers=H, timeout=30))
-          show("FHAS", requests.get("https://www.fhtrust.com.tw/api/assets?fundID=ETF21&qDate=2026/11/17", headers=H, timeout=30))
-          for base in ("https://www.uobam.com.tw/api/json/reply/", "https://www.uobam.com.tw/json/reply/", "https://www.uobam.com.tw/api/"):
-              for req in ("WebSiteETFRequest",):
-                  try: show("UOB " + base + req, requests.get(base + req, headers=H, timeout=30, verify=False))
-                  except Exception as e: print("UOB", base, e)
+          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36", "Accept": "application/json"}
+          for fid in ("00515073", "00580854", "00580860", "00648622", "00719554", "88329556"):
+              for d in ("", "2026/11/18"):
+                  r = requests.get("https://www.uobam.com.tw/json/reply/WebSitePcfRequest", params={"fundID": fid, "pcfDate": d}, headers=H, timeout=30, verify=False)
+                  print("UPCF", fid, repr(d), r.status_code, r.text[:1800].replace("\n", " "))
           PY
