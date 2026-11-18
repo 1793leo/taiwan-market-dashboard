@@ -6,20 +6,42 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - run: pip install -q requests
       - run: |
           python3 - <<'PY'
-          import requests, re, json, subprocess
+          import re, requests, json
           H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
-          r = requests.get("https://www.yuantaetfs.com/tradeInfo/pcf/0050", headers=H, timeout=60)
-          h = r.text
-          print("YST", r.status_code, len(h), r.url)
-          i = h.find("__NUXT__"); print("YCTX", h[max(0,i-100):i+300])
-          open("y.html","w").write(h)
-          js = r"""const vm=require('vm');const h=require('fs').readFileSync('y.html','utf8');const m=h.match(/<script>(window\.__NUXT__=[\s\S]*?)<\/script>/);if(!m){console.log('YNOMATCH');process.exit()}const c={window:{}};vm.runInNewContext(m[1],c);const d=c.window.__NUXT__;console.log('YK '+JSON.stringify(Object.keys(d)));(d.data||[]).forEach((x,i)=>console.log('YD '+i+' '+JSON.stringify(Object.keys(x||{}))+' '+JSON.stringify(x).slice(0,500)));console.log('YF '+JSON.stringify(d.fetch||{}).slice(0,800));console.log('YE '+JSON.stringify(d.error||null))"""
-          print(subprocess.run(["node","-e",js],capture_output=True,text=True))
-          for u in ["https://www.yuantaetfs.com/api/Pcf?fundid=0050", "https://www.yuantaetfs.com/api/PCF?ticker=0050"]:
-              try: x = requests.get(u, headers=H, timeout=20); print("YAPI", u, x.status_code, x.text[:200])
-              except Exception as e: print("YAPI", u, e)
+          def get(u, **k):
+              try:
+                  r = requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k); return r
+              except Exception as e: print("ERR", u, e); return None
+          # Cathay list
+          r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFList", h={"Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"})
+          if r is not None:
+              t = r.text
+              for c in ("00881", "00922", "00878"):
+                  i = t.find(c); print("CATHAY", c, t[max(0, i-250): i+150] if i >= 0 else -1)
+          # Capital list
+          for u in ("https://www.capitalfund.com.tw/etf/product", "https://www.capitalfund.com.tw/etf/product/list"):
+              r = get(u)
+              if r is not None:
+                  ids = re.findall(r'product/detail/(\d+)[^>]*>', r.text); print("CAPLIST", u, r.status_code, len(r.text), ids[:60])
+          for fid in range(150, 260):
+              try:
+                  r = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": str(fid), "date": None}, headers=H, timeout=15)
+                  d = r.json().get("data") or {}
+                  p = d.get("pcf") or {}
+                  if p: print("CAP", fid, json.dumps({k: v for k, v in p.items() if isinstance(v, str)}, ensure_ascii=False)[:300])
+              except Exception as e: pass
+          # ezmoney
+          r = get("https://www.ezmoney.com.tw/ETF/Fund/List") or get("https://www.ezmoney.com.tw/ETF")
+          if r is not None:
+              for m in re.finditer(r"fundCode=([0-9A-Z]+)", r.text): print("EZ", m.group(1), re.sub(r"<[^>]+>|\s+", " ", r.text[m.end(): m.end()+200])[:120])
+          for u in ("https://www.fhtrust.com.tw/ETF", "https://www.fhtrust.com.tw/ETF/etf_list", "https://www.kgifund.com.tw/ETF", "https://www.kgifund.com.tw/", "https://www.uobam.com.tw/", "https://www.uobam.com.tw/ETF", "https://www.fhtrust.com.tw/"):
+              r = get(u)
+              if r is None: continue
+              links = sorted(set(re.findall(r'href="([^"]*(?:[Ee][Tt][Ff]|[Pp][Cc][Ff]|Fund|fund)[^"]*)"', r.text)))
+              print("SITE", u, r.status_code, r.url, len(r.text), links[:60])
+              for c in ("00929", "00991A", "009816", "00918"):
+                  for m in list(re.finditer(c, r.text))[:2]: print("  HIT", c, r.text[max(0, m.start()-200): m.start()+100].replace("\n", " "))
           PY
