@@ -9,10 +9,18 @@ jobs:
       - run: pip install -q requests
       - run: |
           python3 - <<'PY'
-          import requests
-          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36", "Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
-          for ep in ("BuySale/GetStocksList", "BuySale/GetFuturesList"):
-              for p in ({"FundCode": "DO"}, {"FundCode": "DO", "SearchDate": "2026-11-18"}):
-                  r = requests.get("https://cwapi.cathaysite.com.tw/api/" + ep, params=p, headers=H, timeout=30)
-                  print("CB", ep, p, r.status_code, r.text[:900])
+          import re, requests, html
+          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36"}
+          def txt(h):
+              t = re.sub(r"<script.*?</script>|<style.*?</style>", " ", h, flags=re.S | re.I)
+              t = html.unescape(re.sub(r"<[^>]+>", "|", t)); return re.sub(r"(\|\s*)+", "|", re.sub(r"\s+", " ", t))
+          for q in ("A=DD&B=1&C=1", "A=DD&B=0&C=1", "A=DD&B=1&C=2", "A=DD&B=1&C=1&D=2026-11-17", "A=DD&B=1&C=1&D=1"):
+              r = requests.get("https://fubon-ebrokerdj.fbs.com.tw/z/zg/zgk.djhtm?" + q, headers=H, timeout=30)
+              r.encoding = "big5"
+              t = txt(r.text)
+              print("FB", q, r.status_code, len(r.text), t[:1500])
+              print("FBTAIL", q, t[-400:])
+          r = requests.get("https://fubon-ebrokerdj.fbs.com.tw/z/zg/zgk.djhtm?A=DD&B=1&C=1", headers=H, timeout=30); r.encoding="big5"
+          print("LINKS", sorted(set(re.findall(r'href="([^"]*zgk[^"]*)"', r.text)))[:40])
+          print("SELECT", re.findall(r"<select.*?</select>", r.text, re.S)[:3])
           PY
