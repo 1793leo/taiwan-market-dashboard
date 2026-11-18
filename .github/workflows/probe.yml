@@ -6,21 +6,10 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - run: pip install -q requests
+      - uses: actions/checkout@v4
+      - run: pip install -q requests pandas
       - run: |
-          python3 - <<'PY'
-          import re, requests, html
-          H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36"}
-          def txt(h):
-              t = re.sub(r"<script.*?</script>|<style.*?</style>", " ", h, flags=re.S | re.I)
-              t = html.unescape(re.sub(r"<[^>]+>", "|", t)); return re.sub(r"(\|\s*)+", "|", re.sub(r"\s+", " ", t))
-          for q in ("A=DD&B=1&C=1", "A=DD&B=0&C=1", "A=DD&B=1&C=2", "A=DD&B=1&C=1&D=2026-11-17", "A=DD&B=1&C=1&D=1"):
-              r = requests.get("https://fubon-ebrokerdj.fbs.com.tw/z/zg/zgk.djhtm?" + q, headers=H, timeout=30)
-              r.encoding = "big5"
-              t = txt(r.text)
-              print("FB", q, r.status_code, len(r.text), t[:1500])
-              print("FBTAIL", q, t[-400:])
-          r = requests.get("https://fubon-ebrokerdj.fbs.com.tw/z/zg/zgk.djhtm?A=DD&B=1&C=1", headers=H, timeout=30); r.encoding="big5"
-          print("LINKS", sorted(set(re.findall(r'href="([^"]*zgk[^"]*)"', r.text)))[:40])
-          print("SELECT", re.findall(r"<select.*?</select>", r.text, re.S)[:3])
-          PY
+          cd scripts && python3 trust.py && python3 -c "
+          import trust; from pathlib import Path
+          trust.update(Path('../out'))"
+          cd .. && cat out/trust/*.csv | sed 's/^/CSV /' | head -120
