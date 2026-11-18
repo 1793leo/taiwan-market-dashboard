@@ -16,25 +16,23 @@ jobs:
               try: return requests.get(u, headers={**H, **k.pop("h", {})}, timeout=30, **k)
               except Exception as e: print("ERR", u, e); return None
           CH = {"Origin": "https://www.cathaysite.com.tw", "Referer": "https://www.cathaysite.com.tw/"}
-          for p in ({"stockCode": "00881"}, {"StockCode": "00881"}, {"code": "00881"}, {"Code": "00881"}):
-              r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFCode", params=p, h=CH); print("CCODE", p, r.status_code, r.text[:300])
-          h = get("https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3").text
-          js = re.findall(r'src="([^"]*main[^"]*\.js)"', h)[0]
-          b = get("https://www.cathaysite.com.tw/" + js).text
-          for k in ("GetETFList", "GetETFCode"):
-              for m in list(re.finditer(k, b))[:3]: print("CJS", k, b[max(0, m.start()-300): m.start()+300].replace("\n", " "))
-          t = get("https://www.fhtrust.com.tw/js/util_footer.js?6aab978e").text
-          for k in ("/api/ETFPcf", "/api/stockhold", "/api/assets"):
-              for m in list(re.finditer(re.escape(k), t))[:2]: print("FHJS", k, t[max(0, m.start()-500): m.start()+400].replace("\n", " "))
-          t = get("https://www.kgifund.com.tw/Fund/RedemptionList?fundNo=J023").text
-          i = t.find("function UpdateRedemption"); print("KJS", t[i: i+2500])
-          r = get("https://www.uobam.com.tw/fund/etf/pcf", verify=False); t = r.text
-          print("UPCF", r.status_code, len(t), sorted(set(re.findall(r'src="([^"]+\.js)"', t)))[:30])
-          for m in list(re.finditer("00918", t))[:3]: print("  UHIT", re.sub(r"\s+", " ", t[max(0, m.start()-300): m.start()+200]))
-          for s in sorted(set(re.findall(r'src="([^"]+\.js)"', t))):
-              u = s if s.startswith("http") else "https://www.uobam.com.tw" + s
-              b = get(u, verify=False)
-              if b is None: continue
-              apis = sorted(set(re.findall(r'["\'`]((?:https?://[^"\'`]*)?/api/[A-Za-z0-9_/\-.]*)', b.text)))
-              if apis: print("UJS", s, apis[:80])
+          for c in ("00881", "00922"):
+              r = get("https://cwapi.cathaysite.com.tw/api/ETF/GetETFList", params={"Keyword": c}, h=CH)
+              try: print("CKEY", c, [(x["stockCode"], x["fundCode"], x["fundSName"]) for x in r.json()["result"]][:5])
+              except Exception as e: print("CKEY", c, e, r.text[:200])
+          t = get("https://www.fhtrust.com.tw/ETF/etf_detail/ETF21").text
+          for k in ("getETFPcf(", "getAssets(", "getStockhold(", "fundID"):
+              for m in list(re.finditer(re.escape(k), t))[:3]: print("FHP", k, re.sub(r"\s+", " ", t[max(0, m.start()-300): m.start()+400]))
+          for u in ("https://www.fhtrust.com.tw/api/ETFPcf?fundID=ETF21", "https://www.fhtrust.com.tw/api/assets?fundID=ETF21", "https://www.fhtrust.com.tw/api/stockhold?fundID=ETF21"):
+              r = get(u); print("FHAPI", u, r.status_code, r.text[:800])
+          r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": "J023"}, headers=H, timeout=30)
+          t = re.sub(r"<script.*?</script>", " ", r.text, flags=re.S); tt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
+          print("KRED", r.status_code, len(r.text), tt[:3000])
+          import html
+          d = get("https://www.kgifund.com.tw/Fund/Detail?fundID=J023").text
+          i = d.find('id="FundDetail-06"'); seg = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "|", d[i: i+6000])))
+          print("KDET", re.sub(r"(\|\s*)+", "|", seg)[:2500])
+          b = get("https://www.uobam.com.tw/static/js/main.1e36eac5.chunk.js", verify=False).text
+          for k in ("pcfexcel", "/api/WebSite/", "baseURL", "00918"):
+              for m in list(re.finditer(re.escape(k), b))[:4]: print("UJS", k, b[max(0, m.start()-400): m.start()+300].replace("\n", " "))
           PY
