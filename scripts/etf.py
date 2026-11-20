@@ -587,10 +587,62 @@ def write(data: Path, site: Path):
         listing.append({"code": code, "name": doc["name"]})
         print(f"etf {code}: {len(dates)} 天，最新 {dates[-1]}")
     (site / "data" / "etf").mkdir(parents=True, exist_ok=True)
+    write_holdings(data, site)
     (site / "data" / "etf" / "list.json").write_text(json.dumps(listing, ensure_ascii=False), encoding="utf-8")
     # 申購贖回總表：每個日期所有追蹤 ETF 的淨申購／贖回
     (site / "data" / "etf" / "flows.json").write_text(json.dumps(flows, ensure_ascii=False, separators=(",", ":")),
                                                       encoding="utf-8")
+
+
+def write_holdings(data: Path, site: Path):
+    """
+    持股總表：以個股為主體，加總所有追蹤 ETF 的持股股數與當日增減。
+    某日 D：每檔 ETF 取資料日 ≤ D 的最新一筆；資料日 = D 才計入當日增減（與該 ETF 前一筆比較），
+    尚未更新到 D 的 ETF 只計入持股、不計增減。
+    """
+    recs = {}   # code -> [(date, name, {stock: (name, q)})]
+    for code in ETFS:
+        lst = []
+        for p in sorted((data / "etf" / code).glob("20*.json")):
+            d = json.loads(p.read_text(encoding="utf-8"))
+            lst.append((d["date"], NAMES.get(code) or d["name"],
+                        {x["c"]: (x["n"], x["q"]) for x in d["stocks"] if x.get("q") is not None}))
+        if lst:
+            recs[code] = lst
+    out = site / "data" / "etf" / "holdings"
+    out.mkdir(parents=True, exist_ok=True)
+    dates = sorted({r[0] for lst in recs.values() for r in lst})
+    for D in dates:
+        etfs, agg = [], {}
+        for code, lst in recs.items():
+            i = max((k for k, r in enumerate(lst) if r[0] <= D), default=None)
+            if i is None:
+                continue
+            date, name, cur = lst[i]
+            prev = lst[i - 1][2] if i > 0 else None
+            status = "stale" if date < D else ("first" if prev is None else "upd")
+            etfs.append([code, name, date, status])
+            codes = set(cur) | (set(prev) if status == "upd" else set())
+            for c in codes:
+                n, q = cur.get(c, (None, 0))
+                if n is None:
+                    n = prev[c][0]
+                dq = q - prev.get(c, (None, 0))[1] if status == "upd" else None
+                a = agg.setdefault(c, {"n": n, "q": 0, "dq": 0, "known": False, "by": []})
+                a["q"] += q
+                if dq is not None:
+                    a["dq"] += dq
+                    a["known"] = True
+                a["by"].append([code, q, dq])
+        rows = []
+        for c, a in agg.items():
+            a["by"].sort(key=lambda x: -x[1])
+            rows.append([c, a["n"], a["q"], a["dq"] if a["known"] else None, sum(1 for b in a["by"] if b[1] > 0), a["by"]])
+        rows.sort(key=lambda r: -r[2])
+        (out / f"{D}.json").write_text(json.dumps({"date": D, "etfs": etfs, "rows": rows}, ensure_ascii=False,
+                                                  separators=(",", ":")), encoding="utf-8")
+    (out / "index.json").write_text(json.dumps(dates), encoding="utf-8")
+    print(f"etf 持股總表: {len(dates)} 天")
 
 
 if __name__ == "__main__":

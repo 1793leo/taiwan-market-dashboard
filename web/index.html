@@ -307,7 +307,27 @@
       <select id="etf-sel" class="pt-sel" aria-label="選擇 ETF"></select>
       <span id="etf-date" class="pill">載入中…</span>
       <span id="etf-upd" class="ct-time"></span>
-      <div class="seg pt-sub" id="etf-sub"><button data-s="hold" class="on">持股明細</button><button data-s="pcf">申購買回</button></div>
+      <div class="seg pt-sub" id="etf-sub"><button data-s="hold" class="on">持股明細</button><button data-s="pcf">申購買回</button><button data-s="all">持股總表</button></div>
+    </div>
+    <div id="etf-all" hidden>
+      <div class="ct-head">
+        <select id="ea-date" class="pt-sel" aria-label="選擇日期"></select>
+        <input id="ea-q" class="ea-q" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋個股">
+        <label class="ea-chk"><input type="checkbox" id="ea-chg"> 只看當日有增減</label>
+        <span id="ea-cover" class="ct-time"></span>
+      </div>
+      <div class="cards ea-cards">
+        <div class="card"><div class="k">涵蓋個股</div><div class="v" id="ea-n">—</div><div class="d" id="ea-nsub">—</div></div>
+        <div class="card"><div class="k">當日增持最多</div><div class="v" id="ea-up">—</div><div class="d" id="ea-upsub">—</div></div>
+        <div class="card"><div class="k">當日減持最多</div><div class="v" id="ea-dn">—</div><div class="d" id="ea-dnsub">—</div></div>
+      </div>
+      <div class="ct-col bk-box">
+        <table class="bk-table ea-table"><thead><tr>
+          <th data-k="i">#</th><th data-k="0" class="hide-sm">代號</th><th data-k="1">名稱</th><th data-k="4" class="r hide-sm">持有 ETF 數</th>
+          <th data-k="2" class="r">合計持股(張)</th><th data-k="3" class="r">當日增減(張)</th><th data-k="p" class="r hide-sm">增減幅度</th>
+        </tr></thead><tbody id="ea-body"></tbody></table>
+      </div>
+      <p class="note">持股總表：以個股為主體，加總所有追蹤 ETF 的股票持股（不含期貨），1 張 = 1,000 股。當日增減為各 ETF 當日持股與其前一筆紀錄的差額加總；某檔 ETF 若尚未更新到該日，只計入持股、不計增減（上方會標示）。點選個股可展開各 ETF 的持股明細。</p>
     </div>
     <div class="cards etf-cards">
       <div class="card"><div class="k">基金淨資產</div><div class="v" id="etf-av">—</div><div class="d" id="etf-avsub">—</div></div>
@@ -372,6 +392,7 @@
 <script src="assets/broker.js"></script>
 <script src="assets/post.js"></script>
 <script src="assets/etf.js"></script>
+<script src="assets/etf_all.js"></script>
 <script src="assets/trust.js"></script>
 </body>
 </html>

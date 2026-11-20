@@ -309,3 +309,18 @@ button.cal-day:hover { border-color: var(--b20); }
 #tab-etf .etf-flow-row { cursor: pointer; }
 #tab-etf .etf-flow-row.cur td { background: color-mix(in srgb, var(--b20) 10%, transparent); }
 #tab-etf .etf-flow-total td { border-top: 1px solid var(--line); }
+
+/* ETF 持股總表 */
+.ea-q { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 160px; }
+.ea-chk { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.ea-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ea-table tbody tr.ea-row { cursor: pointer; }
+.ea-table tbody tr.ea-row:hover td { background: var(--hover, rgba(127,127,127,.06)); }
+.ea-table tr.ea-row td:first-child::before { content: '▸'; color: var(--muted); margin-right: 4px; font-size: 10px; }
+.ea-table tr.ea-row.open td:first-child::before { content: '▾'; }
+.ea-table tr.ea-det > td { padding: 4px 12px 12px 36px; background: var(--hover, rgba(127,127,127,.04)); }
+.ea-sub { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ea-sub td { padding: 3px 8px; border: 0; }
+.ea-stale { color: var(--muted); font-size: 11px; }
+@media (max-width: 720px) { .ea-cards { grid-template-columns: 1fr; } .ea-q { min-width: 0; flex: 1; } }
+[hidden] { display: none !important; }
