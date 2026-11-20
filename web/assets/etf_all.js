@@ -8,7 +8,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
   let loaded = false, doc = null, names = {}, open = new Set();
-  let sortKey = '2', sortDir = -1;
+  let sortKey = '6', sortDir = -1;
 
   async function init() {
     if (loaded) return;
@@ -20,7 +20,7 @@
       $('ea-date').addEventListener('change', () => load($('ea-date').value));
       if (dates.length) await load(dates[dates.length - 1]);
     } catch (e) {
-      $('ea-body').innerHTML = '<tr><td colspan="7" class="none">尚無資料</td></tr>';
+      $('ea-body').innerHTML = '<tr><td colspan="8" class="none">尚無資料</td></tr>';
     }
   }
 
@@ -70,14 +70,14 @@
     $('ea-body').innerHTML = rows.length ? rows.map(({ r, i }, k) => {
       const p = pct(r);
       const ptxt = p == null ? '—' : p === Infinity ? '新增' : `<span class="${p > 0 ? 'up' : p < 0 ? 'down' : 'muted'}">${p > 0 ? '+' : ''}${fmt(p, 2)}%</span>`;
-      const det = open.has(r[0]) ? `<tr class="ea-det"><td colspan="7"><table class="ea-sub">${r[5].map((b) => `<tr>
+      const det = open.has(r[0]) ? `<tr class="ea-det"><td colspan="8"><table class="ea-sub">${r[5].map((b) => `<tr>
           <td><b>${b[0]}</b> <span class="muted">${esc(names[b[0]] || '')}</span></td>
           <td class="r mono">${lots(b[1])} 張</td><td class="r mono">${sgn(b[2])}</td></tr>`).join('')}</table></td></tr>` : '';
       return `<tr class="ea-row${open.has(r[0]) ? ' open' : ''}" data-c="${r[0]}">
         <td class="muted">${k + 1}</td><td class="mono hide-sm">${r[0]}</td><td><b>${esc(r[1])}</b><em class="sm-code">${r[0]}</em></td>
-        <td class="r mono hide-sm">${r[4]}</td><td class="r mono b">${lots(r[2])}</td><td class="r mono b">${sgn(r[3])}</td>
+        <td class="r mono hide-sm">${r[4]}</td><td class="r mono b">${r[6] == null ? '—' : fmt(r[6], 2) + '%'}</td><td class="r mono">${lots(r[2])}</td><td class="r mono b">${sgn(r[3])}</td>
         <td class="r mono hide-sm">${ptxt}</td></tr>${det}`;
-    }).join('') : '<tr><td colspan="7" class="none">沒有符合的個股</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="none">沒有符合的個股</td></tr>';
   }
 
   $('ea-body').addEventListener('click', (e) => {

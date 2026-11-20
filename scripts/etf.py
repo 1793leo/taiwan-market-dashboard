@@ -609,6 +609,17 @@ def write_holdings(data: Path, site: Path):
                         {x["c"]: (x["n"], x["q"]) for x in d["stocks"] if x.get("q") is not None}))
         if lst:
             recs[code] = lst
+    shares = {}   # 發行股數（上市／上櫃股本資料）
+    for f in ("shares_twse.csv", "shares_tpex.csv"):
+        p = data / f
+        if p.exists():
+            for line in p.read_text(encoding="utf-8").splitlines()[1:]:
+                c, _, v = line.partition(",")
+                try:
+                    if float(v) > 0:
+                        shares[c.strip()] = float(v)
+                except ValueError:
+                    pass
     out = site / "data" / "etf" / "holdings"
     out.mkdir(parents=True, exist_ok=True)
     dates = sorted({r[0] for lst in recs.values() for r in lst})
@@ -637,8 +648,10 @@ def write_holdings(data: Path, site: Path):
         rows = []
         for c, a in agg.items():
             a["by"].sort(key=lambda x: -x[1])
-            rows.append([c, a["n"], a["q"], a["dq"] if a["known"] else None, sum(1 for b in a["by"] if b[1] > 0), a["by"]])
-        rows.sort(key=lambda r: -r[2])
+            sh = shares.get(c)
+            rows.append([c, a["n"], a["q"], a["dq"] if a["known"] else None, sum(1 for b in a["by"] if b[1] > 0), a["by"],
+                         round(a["q"] / sh * 100, 3) if sh else None])     # [6] ETF 合計持股占股本(%)
+        rows.sort(key=lambda r: -(r[6] or 0))
         (out / f"{D}.json").write_text(json.dumps({"date": D, "etfs": etfs, "rows": rows}, ensure_ascii=False,
                                                   separators=(",", ":")), encoding="utf-8")
     (out / "index.json").write_text(json.dumps(dates), encoding="utf-8")
