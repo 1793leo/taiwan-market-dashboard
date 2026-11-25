@@ -6,60 +6,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -q requests pandas lxml
+      - run: pip install -q requests
       - run: |
-          cd scripts && python3 - <<'PY'
-          import re, json, subprocess, requests, warnings, html
-          warnings.filterwarnings("ignore")
-          import etf
-          UA = etf.UA
-          D = "2026-10-02"
-          # Yuanta
-          for u in ("https://www.yuantaetfs.com/tradeInfo/pcf/0050?date=20261002", "https://www.yuantaetfs.com/tradeInfo/pcf/0050?date=2026/10/02", "https://www.yuantaetfs.com/tradeInfo/pcf/0050?searchDate=20261002"):
-              try:
-                  h = requests.get(u, headers=UA, timeout=60).text
-                  o = subprocess.run(["node", "etf_extract.js"], input=h, capture_output=True, text=True)
-                  p = json.loads(o.stdout).get("PCF", {}) if o.returncode == 0 else {}
-                  print("YT", u, p.get("trandate"), o.stderr[:100])
-              except Exception as e: print("YT", u, e)
+          python3 - <<'PY'
+          import re, requests
+          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
+          b = requests.get("https://www.yuantaetfs.com/_nuxt/fe3ef46b5581e1daf7be.js", headers=UA, timeout=60).text
+          for k in ("PCF/Daily", "ETFPCF/GetETFFuture"):
+              for m in list(re.finditer(re.escape(k), b))[:3]: print("YCTX", k, b[max(0, m.start()-700): m.start()+300].replace("\n", " "))
           h = requests.get("https://www.yuantaetfs.com/tradeInfo/pcf/0050", headers=UA, timeout=60).text
-          print("YAPI", sorted(set(re.findall(r'["\'](https?://[^"\']*api[^"\']*|/api/[^"\']*)', h)))[:30])
-          for s in sorted(set(re.findall(r'src="(/_nuxt/[^"]+\.js)"', h)))[:40]:
+          for s in sorted(set(re.findall(r'src="(/_nuxt/[^"]+\.js)"', h))):
               b = requests.get("https://www.yuantaetfs.com" + s, headers=UA, timeout=60).text
-              for m in list(re.finditer(r"pcf|PCF", b))[:0]: pass
-              apis = sorted(set(re.findall(r'["\'`]([^"\'`]*(?:[Pp][Cc][Ff]|Weight|weight)[^"\'`]{0,60})["\'`]', b)))
-              apis = [a for a in apis if "/" in a and len(a) < 120]
-              if apis: print("YJS", s, apis[:25])
-          # Capital
-          r = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": "195", "date": D}, headers=UA, timeout=60)
-          d = r.json().get("data") or {}; print("CAP", (d.get("pcf") or {}).get("date2"), len(d.get("stocks") or []))
-          # Cathay
-          for ep, p in (("ETF/GetETFDetailStockList", {"FundCode": "CN", "SearchDate": D}), ("BuySale/GetBuySale", {"FundCode": "CN", "SearchDate": D}), ("ETF/GetETFAssets", {"FundCode": "CN", "SearchDate": D})):
-              x = etf._cathay(ep, **p); print("CAT", ep, (len(x) if isinstance(x, list) else json.dumps(x, ensure_ascii=False)[:300]))
-          # Fuh Hwa
-          r = requests.get("https://www.fhtrust.com.tw/api/assets", params={"fundID": "ETF21", "qDate": "2026/10/02"}, headers=UA, timeout=60)
-          a = (r.json().get("result") or [{}])[0]; print("FH", a.get("dDate"), len(a.get("detail") or []), a.get("pcf_FundQissue"))
-          r = requests.get("https://www.fhtrust.com.tw/api/ETFPcf", params={"fundID": "ETF21", "pcfDate": "2026/10/03"}, headers=UA, timeout=60)
-          print("FHP", r.text[:300])
-          # UOB
-          r = requests.get("https://www.uobam.com.tw/json/reply/WebSitePcfRequest", params={"fundID": "88329556", "pcfDate": "2026/10/02"}, headers={**UA, "Accept": "application/json"}, timeout=60, verify=False)
-          j = r.json(); print("UOB", etf.jsdate(j.get("datadate")), len(j.get("result") or []), j.get("issuesDiff"))
-          # KGI
-          for q in ("2026/10/02", "2026-10-02", "115/10/02"):
-              r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": "J023", "queryDate": q}, headers=UA, timeout=60)
-              t = etf._table_text(r.text); m = re.search(r"\((\d{4}/\d{1,2}/\d{1,2})\)", t); print("KGI", q, m.group(1) if m else None, t.count("|股票代號|"))
-          # ezmoney
-          s = requests.Session(); s.headers.update(UA)
-          s.get("https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW", timeout=60)
-          r = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", json={"fundCode": "49YTW", "date": "115/10/02", "specificDate": True}, timeout=60)
-          j = r.json(); print("EZ keys", list(j.keys()), [ (k, len(v) if isinstance(v, list) else v) for k, v in j.items()][:10])
-          print("EZ", json.dumps(j, ensure_ascii=False)[:1500])
-          # Fubon
+              for k in ("baseURL", "etfapi", "apiUrl", "API_URL"):
+                  for m in list(re.finditer(k, b))[:2]: print("YBASE", s, k, b[max(0, m.start()-150): m.start()+250].replace("\n", " "))
           t = requests.get("https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208", headers=UA, timeout=60).text
-          print("FBFORM", re.findall(r'<(?:input|select)[^>]*name="([^"]+)"', t)[:30])
-          t = requests.get("https://websys.fsit.com.tw/FubonETF/Trade/Pcf.aspx?stkId=006208&lan=TW", headers=UA, timeout=60).text
-          print("FBPCFFORM", re.findall(r'<(?:input|select)[^>]*name="([^"]+)"', t)[:30])
+          print("FBJS", sorted(set(re.findall(r'(?:src|href)="([^"]+)"', t)))[:60])
+          for k in ("日期", "Date", "date"):
+              for m in list(re.finditer(k, t))[:4]: print("FBD", k, re.sub(r"\s+", " ", t[max(0, m.start()-200): m.start()+200]))
           PY
