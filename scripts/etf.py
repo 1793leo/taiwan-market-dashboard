@@ -51,8 +51,8 @@ ETFS = {
     "00940": ("yuanta", "00940"),
     "00991A": ("fuhhwa", "ETF23"),
 }
-# 以「公告日」作為日曆日期的 ETF（其餘以持股資料日／交易日為準）
-DATE_BY_ANN = {"00631L"}
+# 以「公告日」作為日曆日期的 ETF：全部（日曆日期 D 顯示公告日 D 的基金概況、交易日 D 的成分股）
+DATE_BY_ANN = set(ETFS)
 # 顯示名稱
 NAMES = {
     "0050": "元大台灣50", "0056": "元大高股息", "00631L": "元大台灣50正2", "00713": "元大台灣高息低波",
@@ -565,12 +565,61 @@ def fetch(code: str) -> dict:
     doc["issuer"] = ISSUER[issuer]
     doc["name"] = NAMES.get(code) or doc["name"]
     doc["stocks"] = [s for s in doc["stocks"] if s["c"] and s["w"] is not None]
-    if code in DATE_BY_ANN and iso(doc.get("ann_date")):
-        doc["trade_date"], doc["date"] = doc["date"], iso(doc["ann_date"])
+    if code in DATE_BY_ANN and doc.get("date"):
+        to_ann_date(doc)
     return doc
 
 
+def next_trading_day(d: str) -> str:
+    """d 之後的下一個交易日（加權指數交易日；超出已知範圍時取下一個平日）"""
+    days = trading_days()
+    nxt = [x for x in days if x > d]
+    if nxt and (dt.date.fromisoformat(nxt[0]) - dt.date.fromisoformat(d)).days < 15:
+        return nxt[0]
+    day = dt.date.fromisoformat(d) + dt.timedelta(days=1)
+    while day.weekday() >= 5:
+        day += dt.timedelta(days=1)
+    return day.isoformat()
+
+
+def to_ann_date(doc: dict) -> dict:
+    """把以交易日命名的紀錄改成以公告日命名：date = 公告日，trade_date = 原交易日（持股資料日）。
+    公告日以官網 ann_date 為準；若缺少或不在交易日之後（官網清單尚未更新），改用下一個交易日。"""
+    if doc.get("trade_date"):
+        return doc
+    t = doc["date"]
+    a = iso(doc.get("ann_date"))
+    if not a or a <= t or (dt.date.fromisoformat(a) - dt.date.fromisoformat(t)).days > 15:
+        a = next_trading_day(t)
+    doc["trade_date"], doc["date"] = t, a
+    return doc
+
+
+def migrate(data: Path, log=print):
+    """舊格式（以交易日命名、沒有 trade_date）的紀錄一律改成以公告日命名。
+    先全部讀進來再寫出，避免改名時覆蓋到尚未處理的舊檔。"""
+    for code in DATE_BY_ANN:
+        folder = data / "etf" / code
+        files = sorted(folder.glob("20*.json"))
+        docs = [json.loads(p.read_text(encoding="utf-8")) for p in files]
+        if all(d.get("trade_date") for d in docs):
+            continue
+        keep = {}
+        for d in docs:
+            to_ann_date(d)
+            o = keep.get(d["date"])
+            if o is None or d["trade_date"] >= o["trade_date"]:
+                keep[d["date"]] = d
+        for p in files:
+            p.unlink()
+        for d in keep.values():
+            (folder / f"{d['date']}.json").write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")),
+                                                      encoding="utf-8")
+        log(f"etf {code}: {len(docs)} 筆改以公告日命名")
+
+
 def update(data: Path, log=print):
+    migrate(data, lambda *a: None)
     for code in ETFS:
         try:
             doc = fetch(code)
@@ -596,10 +645,16 @@ def update(data: Path, log=print):
             f"申購籃 {len(doc['inkind'])} 檔（{doc['issuer']} {doc.get('updated')}）")
 
 
+_DAYS: list[str] = []
+
+
 def trading_days() -> list[str]:
+    if _DAYS:
+        return _DAYS
     import pandas as pd
     tx = pd.read_csv(ROOT.parent / "data" / "taiex.csv", usecols=["date"])["date"]
-    return sorted(str(x) for x in tx)
+    _DAYS.extend(sorted(str(x) for x in tx))
+    return _DAYS
 
 
 def backfill(data: Path, start: str, end: str, codes=None, log=print):
@@ -669,6 +724,7 @@ def load_docs(data: Path, code: str) -> list[dict]:
 
 
 def write(data: Path, site: Path):
+    migrate(data, lambda *a: None)
     listing, flows = [], {}
     for code in ETFS:
         docs = load_docs(data, code)
@@ -750,8 +806,8 @@ def write_holdings(data: Path, site: Path):
                     pass
     out = site / "data" / "etf" / "holdings"
     out.mkdir(parents=True, exist_ok=True)
-    # 以公告日為日期的 ETF 會比其他檔早一天出現，不讓它單獨產生一個新日期
-    dates = sorted({r[0] for c, lst in recs.items() if c not in DATE_BY_ANN for r in lst})
+    # 成分股尚未公告（hold_pending）的日期不列入
+    dates = sorted({r[0] for lst in recs.values() for r in lst})
     for D in dates:
         etfs, agg = [], {}
         for code, lst in recs.items():
