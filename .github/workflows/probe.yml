@@ -6,14 +6,19 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - run: pip install -q requests
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests pandas lxml
       - run: |
           python3 - <<'PY'
-          import re, requests
-          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
-          h = requests.get("https://www.yuantaetfs.com/tradeInfo/pcf/0050", headers=UA, timeout=60).text
-          for s in sorted(set(re.findall(r'src="(/_nuxt/[^"]+\.js)"', h))):
-              b = requests.get("https://www.yuantaetfs.com" + s, headers=UA, timeout=60).text
-              for k in ("$getAPI=", "getAPI\",", "api/bridge", "APIType", "\"/bridge"):
-                  for m in list(re.finditer(re.escape(k), b))[:3]: print("YG", s, k, b[max(0, m.start()-600): m.start()+700].replace("\n", " "))
+          import sys; sys.path.insert(0, "scripts")
+          import etf, json
+          from pathlib import Path
+          etf.backfill(Path("out"), "2026-10-02", "2026-10-02")
+          for p in sorted(Path("out/etf").glob("*/*.json")):
+              d = json.loads(p.read_text())
+              s = d["summary"]
+              print("DOC", p.parent.name, d["date"], "stk", len(d["stocks"]), "fut", len(d["futures"]), "kind", len(d["inkind"]),
+                    "sumw", round(sum(x["w"] or 0 for x in d["stocks"]), 1), "nav", s.get("nav"), "os", s.get("osunit"), "diff", s.get("issuesdiff"), "ann", d.get("ann_date"), d["stocks"][:1])
           PY
