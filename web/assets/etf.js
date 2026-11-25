@@ -49,7 +49,7 @@
     const wk = '日一二三四五六'[new Date(d + 'T00:00:00+08:00').getDay()];
     $('etf-date').textContent = `${d}（${wk}）`;
     $('etf-upd').textContent = doc.updated ? `${doc.issuer || '元大'}投信 · 上傳 ${doc.updated}` : (doc.issuer ? `${doc.issuer}投信` : '');
-    if (doc.trade_date) $('etf-upd').textContent += ` · 日期為公告日（持股資料日 ${doc.trade_date.slice(5).replace('-', '/')}）`;
+    if (doc.trade_date) $('etf-upd').textContent += ` · 日期為公告日：基金概況為 ${doc.trade_date.slice(5).replace('-', '/')} 資料，成分股為 ${doc.date.slice(5).replace('-', '/')} 持股`;
     $('etf-av').textContent = yi(s.totalav);
     $('etf-avsub').textContent = s.stkvalues != null
       ? `股票 ${yi(s.stkvalues || 0)}` + (s.futvalues != null ? ` · 期貨 ${yi(s.futvalues || 0)}` : ` · ${doc.stocks.length} 檔`)
@@ -93,6 +93,7 @@
       <td class="r mono ${cls(f.dq)}">${first || f.dq == null ? '—' : sgn(f.dq)}</td><td class="r mono">${fmt(f.w, 2)}</td></tr>`).join('')
       || '<tr><td colspan="5" class="none">無期貨部位</td></tr>';
     if (first) $('etf-removed').innerHTML += '<p class="note">這是第一筆紀錄，股數增減與權重變化從下一個交易日開始顯示。</p>';
+    if (doc.hold_pending) $('etf-removed').innerHTML = '<p class="note">此公告日的成分股（當日持股）要等今天盤後官網公告下一份清單才會更新。</p>';
   }
 
   let FLOWS = {};

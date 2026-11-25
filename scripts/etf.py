@@ -17,6 +17,7 @@ ETF 每日紀錄（各投信官網）
 """
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import html as htmlmod
 import io
@@ -642,21 +643,46 @@ def backfill(data: Path, start: str, end: str, codes=None, log=print):
     return stats
 
 
+def load_docs(data: Path, code: str) -> list[dict]:
+    """
+    讀取某檔 ETF 的所有紀錄（依日期排序）。
+    DATE_BY_ANN 的 ETF（00631L）：日曆日期 D = 公告日；基金概況／申購買回取「公告日 = D」那筆，
+    成分股／期貨部位取「交易日 = D」那筆（即公告日為下一交易日的紀錄）。
+    最新公告日的成分股要等下一筆紀錄才有，標記 hold_pending。
+    """
+    raw = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((data / "etf" / code).glob("20*.json"))]
+    if code not in DATE_BY_ANN:
+        return raw
+    by_trade = {r.get("trade_date"): r for r in raw if r.get("trade_date")}
+    out = []
+    for r in raw:
+        d = copy.deepcopy(r)
+        h = by_trade.get(d["date"])
+        d["hold_date"] = d["date"]
+        if h:
+            d["stocks"], d["futures"], d["inkind"] = (copy.deepcopy(h[k]) for k in ("stocks", "futures", "inkind"))
+        else:
+            d["stocks"], d["futures"], d["inkind"] = [], [], []
+            d["hold_pending"] = True
+        out.append(d)
+    return out
+
+
 def write(data: Path, site: Path):
     listing, flows = [], {}
     for code in ETFS:
-        files = sorted((data / "etf" / code).glob("20*.json"))
-        if not files:
+        docs = load_docs(data, code)
+        if not docs:
             continue
         out = site / "data" / "etf" / code
         out.mkdir(parents=True, exist_ok=True)
         prev = None
         dates = []
-        for p in files:
-            doc = json.loads(p.read_text(encoding="utf-8"))
+        for doc in docs:
+            raw = copy.deepcopy(doc)
             doc.setdefault("issuer", "元大")
             # 與前一筆紀錄比較：持股股數／權重增減、新增與剔除
-            if prev:
+            if prev and not doc.get("hold_pending"):
                 pq = {s["c"]: s for s in prev["stocks"]}
                 for s in doc["stocks"]:
                     o = pq.get(s["c"])
@@ -675,12 +701,13 @@ def write(data: Path, site: Path):
                 curf = {(f["c"], f.get("ym")) for f in doc["futures"]}
                 doc["fut_removed"] = [{"c": f["c"], "n": f["n"], "ym": f.get("ym"), "q": 0, "dq": -(f["q"] or 0), "w": 0}
                                       for k, f in pf.items() if k not in curf]
-            prev = json.loads(p.read_text(encoding="utf-8"))
+            if not doc.get("hold_pending"):
+                prev = raw
             s = doc["summary"]
             flows.setdefault(doc["date"], []).append({
                 "code": code, "name": doc["name"], "nav": s.get("nav"), "osunit": s.get("osunit"),
                 "diff": s.get("issuesdiff"), "base": s.get("baseunit"), "totalav": s.get("totalav")})
-            (out / p.name).write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            (out / f"{doc['date']}.json").write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             dates.append(doc["date"])
         (out / "index.json").write_text(json.dumps({"code": code, "name": doc["name"], "dates": dates}, ensure_ascii=False),
                                         encoding="utf-8")
@@ -703,8 +730,9 @@ def write_holdings(data: Path, site: Path):
     recs = {}   # code -> [(date, name, {stock: (name, q)})]
     for code in ETFS:
         lst = []
-        for p in sorted((data / "etf" / code).glob("20*.json")):
-            d = json.loads(p.read_text(encoding="utf-8"))
+        for d in load_docs(data, code):
+            if d.get("hold_pending"):
+                continue
             lst.append((d["date"], NAMES.get(code) or d["name"],
                         {x["c"]: (x["n"], x["q"]) for x in d["stocks"] if x.get("q") is not None}))
         if lst:
