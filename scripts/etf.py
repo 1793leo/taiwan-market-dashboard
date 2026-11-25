@@ -50,8 +50,10 @@ ETFS = {
     "00940": ("yuanta", "00940"),
     "00991A": ("fuhhwa", "ETF23"),
 }
-# 顯示名稱（元大以官網名稱為準）
+# 顯示名稱
 NAMES = {
+    "0050": "元大台灣50", "0056": "元大高股息", "00631L": "元大台灣50正2", "00713": "元大台灣高息低波",
+    "00940": "元大台灣價值高息",
     "00878": "國泰永續高股息", "00919": "群益台灣精選高息", "006208": "富邦台50", "00981A": "主動統一台股增長",
     "009816": "凱基台灣TOP50", "00918": "大華優利高填息30", "00929": "復華台灣科技優息", "00881": "國泰台灣科技龍頭",
     "00403A": "主動統一升級50", "00685L": "群益臺灣加權正2", "00922": "國泰台灣領袖50", "00927": "群益半導體收益",
@@ -360,6 +362,12 @@ def fetch_cathay(code: str, fid: str) -> dict:
         ym = re.sub(r"\D", "", str(x.get("ftDate") or ""))[:6]
         futures.append({"c": c, "n": (x.get("ftName") or "").strip(), "ym": ym or None,
                         "q": inum(x.get("volumn")), "w": num(x.get("ntMkval"))})
+    inkind = []
+    if "實物" in str(b.get("pbTypeString") or "") and b.get("date"):
+        for x in _cathay("BuySale/GetStocksList", FundCode=fid, SearchDate=iso(b.get("date"))) or []:
+            inkind.append({"c": str(x.get("prod")).strip(), "n": (x.get("prodName") or "").strip(),
+                           "q": inum(x.get("basketShares")), "cash": "Y" if x.get("isCashReplace") else "N",
+                           "min": "Y" if x.get("isSmallestBuy") else "N"})
     bdate = iso(b.get("preDateC"))
     same = bdate == date
     bm = iso(b.get("dataDate"))
@@ -374,7 +382,7 @@ def fetch_cathay(code: str, fid: str) -> dict:
              ["預收申購總價金", num(b.get("preAmtS")), "NTD"],
              ["與前日已發行單位差異數", inum(b.get("diffUnit")), "sgn"]]
     return {"code": code, "date": date, "name": "國泰永續高股息", "updated": b.get("date") or a.get("preDate"),
-            "ann_date": ymd(b.get("date")), "summary": s, "stocks": stocks, "futures": futures, "inkind": [],
+            "ann_date": ymd(b.get("date")), "summary": s, "stocks": stocks, "futures": futures, "inkind": inkind,
             "pcf_items": items, "memo": []}
 
 
@@ -579,10 +587,75 @@ def write(data: Path, site: Path):
         listing.append({"code": code, "name": doc["name"]})
         print(f"etf {code}: {len(dates)} 天，最新 {dates[-1]}")
     (site / "data" / "etf").mkdir(parents=True, exist_ok=True)
+    write_holdings(data, site)
     (site / "data" / "etf" / "list.json").write_text(json.dumps(listing, ensure_ascii=False), encoding="utf-8")
     # 申購贖回總表：每個日期所有追蹤 ETF 的淨申購／贖回
     (site / "data" / "etf" / "flows.json").write_text(json.dumps(flows, ensure_ascii=False, separators=(",", ":")),
                                                       encoding="utf-8")
+
+
+def write_holdings(data: Path, site: Path):
+    """
+    持股總表：以個股為主體，加總所有追蹤 ETF 的持股股數與當日增減。
+    某日 D：每檔 ETF 取資料日 ≤ D 的最新一筆；資料日 = D 才計入當日增減（與該 ETF 前一筆比較），
+    尚未更新到 D 的 ETF 只計入持股、不計增減。
+    """
+    recs = {}   # code -> [(date, name, {stock: (name, q)})]
+    for code in ETFS:
+        lst = []
+        for p in sorted((data / "etf" / code).glob("20*.json")):
+            d = json.loads(p.read_text(encoding="utf-8"))
+            lst.append((d["date"], NAMES.get(code) or d["name"],
+                        {x["c"]: (x["n"], x["q"]) for x in d["stocks"] if x.get("q") is not None}))
+        if lst:
+            recs[code] = lst
+    shares = {}   # 發行股數（上市／上櫃股本資料）
+    for f in ("shares_twse.csv", "shares_tpex.csv"):
+        p = data / f
+        if p.exists():
+            for line in p.read_text(encoding="utf-8").splitlines()[1:]:
+                c, _, v = line.partition(",")
+                try:
+                    if float(v) > 0:
+                        shares[c.strip()] = float(v)
+                except ValueError:
+                    pass
+    out = site / "data" / "etf" / "holdings"
+    out.mkdir(parents=True, exist_ok=True)
+    dates = sorted({r[0] for lst in recs.values() for r in lst})
+    for D in dates:
+        etfs, agg = [], {}
+        for code, lst in recs.items():
+            i = max((k for k, r in enumerate(lst) if r[0] <= D), default=None)
+            if i is None:
+                continue
+            date, name, cur = lst[i]
+            prev = lst[i - 1][2] if i > 0 else None
+            status = "stale" if date < D else ("first" if prev is None else "upd")
+            etfs.append([code, name, date, status])
+            codes = set(cur) | (set(prev) if status == "upd" else set())
+            for c in codes:
+                n, q = cur.get(c, (None, 0))
+                if n is None:
+                    n = prev[c][0]
+                dq = q - prev.get(c, (None, 0))[1] if status == "upd" else None
+                a = agg.setdefault(c, {"n": n, "q": 0, "dq": 0, "known": False, "by": []})
+                a["q"] += q
+                if dq is not None:
+                    a["dq"] += dq
+                    a["known"] = True
+                a["by"].append([code, q, dq])
+        rows = []
+        for c, a in agg.items():
+            a["by"].sort(key=lambda x: -x[1])
+            sh = shares.get(c)
+            rows.append([c, a["n"], a["q"], a["dq"] if a["known"] else None, sum(1 for b in a["by"] if b[1] > 0), a["by"],
+                         round(a["q"] / sh * 100, 3) if sh else None])     # [6] ETF 合計持股占股本(%)
+        rows.sort(key=lambda r: -(r[6] or 0))
+        (out / f"{D}.json").write_text(json.dumps({"date": D, "etfs": etfs, "rows": rows}, ensure_ascii=False,
+                                                  separators=(",", ":")), encoding="utf-8")
+    (out / "index.json").write_text(json.dumps(dates), encoding="utf-8")
+    print(f"etf 持股總表: {len(dates)} 天")
 
 
 if __name__ == "__main__":
