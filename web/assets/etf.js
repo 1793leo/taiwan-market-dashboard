@@ -86,9 +86,11 @@
       <td class="r mono hide-sm ${cls(s.dw)}">${first ? '—' : sgn(s.dw, 2)}</td></tr>`).join('');
     $('etf-removed').innerHTML = (doc.removed || []).length
       ? `<p class="note"><b class="down">本日剔除：</b>${doc.removed.map((r) => `${r.n}（${r.c}）`).join('、')}</p>` : '';
-    $('etf-fut').innerHTML = doc.futures.map((f) => `<tr><td><b>${f.n}</b><em class="sub">${f.c}</em></td>
-      <td class="mono">${f.ym ? f.ym.slice(0, 4) + '/' + f.ym.slice(4) : '—'}</td><td class="r mono">${fmt(f.q)}</td><td class="r mono">${fmt(f.w, 2)}</td></tr>`).join('')
-      || '<tr><td colspan="4" class="none">無期貨部位</td></tr>';
+    const futs = [...doc.futures, ...(doc.fut_removed || []).map((f) => ({ ...f, gone: true }))];
+    $('etf-fut').innerHTML = futs.map((f) => `<tr><td><b>${f.n}</b><em class="sub">${f.c}</em>${f.gone ? ' <span class="muted">（已平倉／轉倉）</span>' : f.new && !first ? ' <span class="up">新增</span>' : ''}</td>
+      <td class="mono">${f.ym ? f.ym.slice(0, 4) + '/' + f.ym.slice(4) : '—'}</td><td class="r mono">${fmt(f.q)}</td>
+      <td class="r mono ${cls(f.dq)}">${first || f.dq == null ? '—' : sgn(f.dq)}</td><td class="r mono">${fmt(f.w, 2)}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="none">無期貨部位</td></tr>';
     if (first) $('etf-removed').innerHTML += '<p class="note">這是第一筆紀錄，股數增減與權重變化從下一個交易日開始顯示。</p>';
   }
 

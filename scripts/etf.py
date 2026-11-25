@@ -663,6 +663,15 @@ def write(data: Path, site: Path):
                 cur = {s["c"] for s in doc["stocks"]}
                 doc["removed"] = [{"c": s["c"], "n": s["n"], "q": s["q"], "w": s["w"]} for s in prev["stocks"] if s["c"] not in cur]
                 doc["prev_date"] = prev["date"]
+                # 期貨部位：同一商品同一月份比較口數；轉倉時舊月份列為已平倉
+                pf = {(f["c"], f.get("ym")): f for f in prev.get("futures") or []}
+                for f in doc["futures"]:
+                    o = pf.get((f["c"], f.get("ym")))
+                    f["dq"] = (f["q"] or 0) - (o["q"] or 0) if o else f["q"]
+                    f["new"] = o is None
+                curf = {(f["c"], f.get("ym")) for f in doc["futures"]}
+                doc["fut_removed"] = [{"c": f["c"], "n": f["n"], "ym": f.get("ym"), "q": 0, "dq": -(f["q"] or 0), "w": 0}
+                                      for k, f in pf.items() if k not in curf]
             prev = json.loads(p.read_text(encoding="utf-8"))
             s = doc["summary"]
             flows.setdefault(doc["date"], []).append({
