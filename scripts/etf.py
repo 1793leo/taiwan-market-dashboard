@@ -50,6 +50,8 @@ ETFS = {
     "00940": ("yuanta", "00940"),
     "00991A": ("fuhhwa", "ETF23"),
 }
+# 以「公告日」作為日曆日期的 ETF（其餘以持股資料日／交易日為準）
+DATE_BY_ANN = {"00631L"}
 # 顯示名稱
 NAMES = {
     "0050": "元大台灣50", "0056": "元大高股息", "00631L": "元大台灣50正2", "00713": "元大台灣高息低波",
@@ -562,6 +564,8 @@ def fetch(code: str) -> dict:
     doc["issuer"] = ISSUER[issuer]
     doc["name"] = NAMES.get(code) or doc["name"]
     doc["stocks"] = [s for s in doc["stocks"] if s["c"] and s["w"] is not None]
+    if code in DATE_BY_ANN and iso(doc.get("ann_date")):
+        doc["trade_date"], doc["date"] = doc["date"], iso(doc["ann_date"])
     return doc
 
 
@@ -611,12 +615,11 @@ def backfill(data: Path, start: str, end: str, codes=None, log=print):
             continue
         ok = miss = 0
         folder = data / "etf" / code
+        by_ann = code in DATE_BY_ANN
         for T in targets:
-            if (folder / f"{T}.json").exists():
-                continue
             i = days.index(T)
             DAY, ANN = T, (days[i + 1] if i + 1 < len(days) else None)
-            if not ANN:
+            if not ANN or (folder / f"{ANN if by_ann else T}.json").exists():
                 continue
             try:
                 doc = fetch(code)
@@ -626,12 +629,12 @@ def backfill(data: Path, start: str, end: str, codes=None, log=print):
                 continue
             finally:
                 time.sleep(0.4)
-            if doc.get("date") != T or not (doc["stocks"] or doc["futures"]):
+            if doc.get("date") != (ANN if by_ann else T) or not (doc["stocks"] or doc["futures"]):
                 log(f"etf {code} {T}: 官網無此日資料（回傳 {doc.get('date')}，持股 {len(doc['stocks'])}）")
                 miss += 1
                 continue
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / f"{T}.json").write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            (folder / f"{doc['date']}.json").write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             ok += 1
         stats[code] = (ok, miss)
         log(f"etf {code}: 回補 {ok} 天，缺 {miss} 天")
@@ -719,7 +722,8 @@ def write_holdings(data: Path, site: Path):
                     pass
     out = site / "data" / "etf" / "holdings"
     out.mkdir(parents=True, exist_ok=True)
-    dates = sorted({r[0] for lst in recs.values() for r in lst})
+    # 以公告日為日期的 ETF 會比其他檔早一天出現，不讓它單獨產生一個新日期
+    dates = sorted({r[0] for c, lst in recs.items() if c not in DATE_BY_ANN for r in lst})
     for D in dates:
         etfs, agg = [], {}
         for code, lst in recs.items():

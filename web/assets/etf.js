@@ -49,6 +49,7 @@
     const wk = '日一二三四五六'[new Date(d + 'T00:00:00+08:00').getDay()];
     $('etf-date').textContent = `${d}（${wk}）`;
     $('etf-upd').textContent = doc.updated ? `${doc.issuer || '元大'}投信 · 上傳 ${doc.updated}` : (doc.issuer ? `${doc.issuer}投信` : '');
+    if (doc.trade_date) $('etf-upd').textContent += ` · 日期為公告日（持股資料日 ${doc.trade_date.slice(5).replace('-', '/')}）`;
     $('etf-av').textContent = yi(s.totalav);
     $('etf-avsub').textContent = s.stkvalues != null
       ? `股票 ${yi(s.stkvalues || 0)}` + (s.futvalues != null ? ` · 期貨 ${yi(s.futvalues || 0)}` : ` · ${doc.stocks.length} 檔`)
