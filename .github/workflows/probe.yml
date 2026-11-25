@@ -15,7 +15,7 @@ jobs:
           import sys; sys.path.insert(0, "scripts")
           import etf, json
           from pathlib import Path
-          etf.backfill(Path("out"), "2026-10-02", "2026-10-02")
+          etf.backfill(Path("out"), "2026-10-02", "2026-10-06", ["00981A", "00403A"])
           for p in sorted(Path("out/etf").glob("*/*.json")):
               d = json.loads(p.read_text())
               s = d["summary"]

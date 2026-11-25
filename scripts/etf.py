@@ -308,14 +308,18 @@ def fetch_ezmoney(code: str, fid: str) -> dict:
     s.headers.update(UA)
     hist = None
     if DAY:
-        dd = dt.date.fromisoformat(DAY)
+        # 歷史查詢：某日的 PCF 附帶的是前一交易日的持股，所以持股用公告日（ANN）查、PCF 用資料日（DAY）查
         s.get(f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}", timeout=60)
-        hr = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", timeout=60,
-                    json={"fundCode": fid, "date": f"{dd.year - 1911}/{dd:%m/%d}", "specificDate": True},
-                    headers={"Referer": f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}"})
-        hr.raise_for_status()
-        hist = hr.json()
-        assets = hist.get("asset") or []
+
+        def get_pcf(day: str) -> dict:
+            dd = dt.date.fromisoformat(day)
+            hr = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", timeout=60,
+                        json={"fundCode": fid, "date": f"{dd.year - 1911}/{dd:%m/%d}", "specificDate": True},
+                        headers={"Referer": f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}"})
+            hr.raise_for_status()
+            return hr.json()
+        hist = get_pcf(DAY)
+        assets = get_pcf(ANN).get("asset") or []
         if isinstance(assets, str):
             assets = json.loads(assets)
     else:
