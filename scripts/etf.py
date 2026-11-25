@@ -62,6 +62,9 @@ NAMES = {
 ISSUER = {"yuanta": "元大", "cathay": "國泰", "capital": "群益", "fubon": "富邦", "ezmoney": "統一",
           "kgi": "凱基", "uob": "大華銀", "fuhhwa": "復華"}
 ROOT = Path(__file__).resolve().parent
+# 回補歷史資料時設定：DAY = 要抓的持股資料日（交易日），ANN = 下一個交易日（申購買回清單公告日）
+DAY: str | None = None
+ANN: str | None = None
 UA = {"User-Agent": twdata.HEADERS["User-Agent"], "Accept-Language": "zh-TW,zh;q=0.9"}
 
 
@@ -118,16 +121,30 @@ def stocks_value(stocks):
 
 
 # ---------------------------------------------------------------- 元大
-def fetch_yuanta(code: str, fid: str) -> dict:
-    r = requests.get(f"https://www.yuantaetfs.com/tradeInfo/pcf/{fid}", timeout=60, headers=UA)
+def _yuanta_history(fid: str) -> dict:
+    """元大網站查詢歷史 PCF 用的 API（date = 公告日）"""
+    r = requests.get("https://etfapi.yuantaetfs.com/ectranslation/api/bridge", timeout=60, headers=UA, params={
+        "APIType": "ETFAPI", "CompanyName": "YUANTAFUNDS", "PageName": f"/tradeInfo/pcf/{fid}", "DeviceId": "null",
+        "FuncId": "PCF/Daily", "AppName": "ETF", "Device": "3", "Platform": "ETF", "ticker": fid,
+        "date": ANN.replace("-", "")})
     r.raise_for_status()
-    if "maintenance" in r.url:
-        raise RuntimeError("元大網站維護中，下次排程再抓")
-    out = subprocess.run(["node", str(ROOT / "etf_extract.js")], input=r.text, capture_output=True,
-                         text=True, timeout=60)
-    if out.returncode != 0:
-        raise RuntimeError(f"{code} 解析失敗：{out.stderr.strip()[:200]}")
-    pcf = json.loads(out.stdout)
+    j = r.json()
+    return j.get("Data") if j.get("ResultCode") == 0 else j
+
+
+def fetch_yuanta(code: str, fid: str) -> dict:
+    if DAY:
+        pcf = _yuanta_history(fid) or {}
+    else:
+        r = requests.get(f"https://www.yuantaetfs.com/tradeInfo/pcf/{fid}", timeout=60, headers=UA)
+        r.raise_for_status()
+        if "maintenance" in r.url:
+            raise RuntimeError("元大網站維護中，下次排程再抓")
+        out = subprocess.run(["node", str(ROOT / "etf_extract.js")], input=r.text, capture_output=True,
+                             text=True, timeout=60)
+        if out.returncode != 0:
+            raise RuntimeError(f"{code} 解析失敗：{out.stderr.strip()[:200]}")
+        pcf = json.loads(out.stdout)
     p, fw = pcf.get("PCF") or {}, pcf.get("FundWeights") or {}
     td = str(p.get("trandate") or "")
     if len(td) != 8:
@@ -154,7 +171,7 @@ def fetch_yuanta(code: str, fid: str) -> dict:
 
 # ---------------------------------------------------------------- 群益
 def fetch_capital(code: str, fid: str) -> dict:
-    r = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": fid, "date": None},
+    r = requests.post("https://www.capitalfund.com.tw/CFWeb/api/etf/buyback", json={"fundId": fid, "date": ANN},
                       headers={**UA, "Referer": f"https://www.capitalfund.com.tw/etf/product/detail/{fid}/buyback"},
                       timeout=60)
     r.raise_for_status()
@@ -204,6 +221,8 @@ def _after(text: str, label: str, pat=r"(-?[\d,]+(?:\.\d+)?)"):
 
 def fetch_fubon(code: str, fid: str) -> dict:
     import pandas as pd
+    if DAY:
+        raise RuntimeError("富邦官網只提供最新一日持股，無法回補")
     raw, text = _fubon_text(f"https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId={fid}")
     tables = pd.read_html(io.StringIO(raw))
     stocks, futures = [], []
@@ -287,12 +306,29 @@ def prev_trading_day(d: str | None) -> str | None:
 def fetch_ezmoney(code: str, fid: str) -> dict:
     s = requests.Session()
     s.headers.update(UA)
-    r = s.get(f"https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode={fid}", timeout=60)
-    r.raise_for_status()
-    m = re.search(r'id="DataAsset"[^>]*data-content="([^"]*)"', r.text)
-    if not m:
-        raise RuntimeError(f"{code} 找不到持股資料")
-    assets = json.loads(htmlmod.unescape(m.group(1)))
+    hist = None
+    if DAY:
+        # 歷史查詢以公告日（ANN）查詢，回傳的是前一交易日（DAY）的持股與申購買回清單
+        s.get(f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}", timeout=60)
+
+        def get_pcf(day: str) -> dict:
+            dd = dt.date.fromisoformat(day)
+            hr = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", timeout=60,
+                        json={"fundCode": fid, "date": f"{dd.year - 1911}/{dd:%m/%d}", "specificDate": True},
+                        headers={"Referer": f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}"})
+            hr.raise_for_status()
+            return hr.json()
+        hist = get_pcf(ANN)
+        assets = hist.get("asset") or []
+        if isinstance(assets, str):
+            assets = json.loads(assets)
+    else:
+        r = s.get(f"https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode={fid}", timeout=60)
+        r.raise_for_status()
+        m = re.search(r'id="DataAsset"[^>]*data-content="([^"]*)"', r.text)
+        if not m:
+            raise RuntimeError(f"{code} 找不到持股資料")
+        assets = json.loads(htmlmod.unescape(m.group(1)))
     by = {a.get("AssetCode"): a for a in assets}
     det = lambda k: (by.get(k) or {}).get("Details") or []  # noqa: E731
     stocks = [{"c": str(x.get("DetailCode")).strip(), "n": (x.get("DetailName") or "").strip(), "q": inum(x.get("Share")),
@@ -301,14 +337,18 @@ def fetch_ezmoney(code: str, fid: str) -> dict:
                 "ym": re.sub(r"\D", "", str(x.get("MTH") or ""))[:6] or None,
                 "q": inum(x.get("Share")) * (-1 if str(x.get("Position", "B")).upper().startswith("S") else 1)
                 if x.get("Share") is not None else None, "w": num(x.get("NavRate"))} for x in det("GD")]
-    hold_date = next((iso(x.get("TranDate")) for x in det("ST") if x.get("TranDate")), None)
+    hold_date = next((iso(jsdate(x.get("TranDate"))) for x in det("ST") if x.get("TranDate")), None)
 
-    tw = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
-    q = {"fundCode": fid, "date": f"{tw.year - 1911}/{tw:%m/%d}", "specificDate": False}
-    pr = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", json=q, timeout=60,
-                headers={"Referer": f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}"})
-    pr.raise_for_status()
-    pcf = {x.get("PCFCode"): x for x in (pr.json().get("pcf") or [])}
+    if hist is not None:
+        pj = hist
+    else:
+        tw = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
+        q = {"fundCode": fid, "date": f"{tw.year - 1911}/{tw:%m/%d}", "specificDate": False}
+        pr = s.post("https://www.ezmoney.com.tw/ETF/Transaction/GetPCF", json=q, timeout=60,
+                    headers={"Referer": f"https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode={fid}"})
+        pr.raise_for_status()
+        pj = pr.json()
+    pcf = {x.get("PCFCode"): x for x in (pj.get("pcf") or [])}
     v = lambda k: num((pcf.get(k) or {}).get("Amount"))  # noqa: E731
     any_ = next(iter(pcf.values()), {})
     tran, post = iso(jsdate(any_.get("TranDate"))), iso(jsdate(any_.get("PostDate")))
@@ -347,13 +387,13 @@ def _cathay(ep: str, **params):
 
 
 def fetch_cathay(code: str, fid: str) -> dict:
-    a = _cathay("ETF/GetETFAssets", FundCode=fid) or {}
+    a = (_cathay("ETF/GetETFAssets", FundCode=fid, SearchDate=DAY) if DAY else _cathay("ETF/GetETFAssets", FundCode=fid)) or {}
     date = iso(a.get("preDate"))
     if not date:
         raise RuntimeError(f"{code} 無資料日期")
     st = _cathay("ETF/GetETFDetailStockList", FundCode=fid, SearchDate=date) or []
     ft = _cathay("ETF/GetETFDetailFutureList", FundCode=fid, SearchDate=date) or []
-    b = _cathay("BuySale/GetBuySale", FundCode=fid) or {}
+    b = (_cathay("BuySale/GetBuySale", FundCode=fid, SearchDate=ANN) if DAY else _cathay("BuySale/GetBuySale", FundCode=fid)) or {}
     stocks = [{"c": str(x.get("stockCode")).strip(), "n": (x.get("stockName") or "").strip(), "q": inum(x.get("volumn")),
                "w": num(x.get("weights"))} for x in st]
     futures = []
@@ -394,7 +434,7 @@ def _table_text(html_: str) -> str:
 
 
 def fetch_kgi(code: str, fid: str) -> dict:
-    r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": fid}, timeout=60,
+    r = requests.post("https://www.kgifund.com.tw/Fund/RedemptionVC", data={"fundID": fid, **({"queryDate": ANN.replace("-", "/")} if DAY else {})}, timeout=60,
                       headers={**UA, "Referer": f"https://www.kgifund.com.tw/Fund/RedemptionList?fundNo={fid}"})
     r.raise_for_status()
     t = _table_text(r.text)
@@ -431,7 +471,7 @@ def fetch_uob(code: str, fid: str) -> dict:
     import urllib3
     urllib3.disable_warnings()
     # 大華銀官網憑證鏈不完整（缺中繼憑證），只讀公開資料，此網域略過憑證驗證
-    r = requests.get("https://www.uobam.com.tw/json/reply/WebSitePcfRequest", params={"fundID": fid, "pcfDate": ""},
+    r = requests.get("https://www.uobam.com.tw/json/reply/WebSitePcfRequest", params={"fundID": fid, "pcfDate": ANN.replace("-", "/") if DAY else ""},
                      headers={**UA, "Accept": "application/json"}, timeout=60, verify=False)
     r.raise_for_status()
     j = r.json()
@@ -462,9 +502,9 @@ def fetch_uob(code: str, fid: str) -> dict:
 # ---------------------------------------------------------------- 復華
 def fetch_fuhhwa(code: str, fid: str) -> dict:
     H = {**UA, "Accept": "application/json", "Referer": f"https://www.fhtrust.com.tw/ETF/etf_detail/{fid}"}
-    today = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
+    today = dt.date.fromisoformat(DAY) if DAY else dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
     a = None
-    for back in range(8):  # 由今天往回找最近一個有資料的日子
+    for back in range(1 if DAY else 8):  # 由今天往回找最近一個有資料的日子
         d = today - dt.timedelta(days=back)
         r = requests.get("https://www.fhtrust.com.tw/api/assets", params={"fundID": fid, "qDate": f"{d:%Y/%m/%d}"},
                          headers=H, timeout=60)
@@ -490,7 +530,7 @@ def fetch_fuhhwa(code: str, fid: str) -> dict:
     tot = {x.get("ftype"): num(x.get("tot_mvalue")) for x in a.get("result") or [] if x.get("ftype") in ("股票", "期貨")}
     p = {}
     for back in range(8):
-        d = today - dt.timedelta(days=back)
+        d = (dt.date.fromisoformat(ANN) if DAY else today) - dt.timedelta(days=back)
         r = requests.get("https://www.fhtrust.com.tw/api/ETFPcf", params={"fundID": fid, "pcfDate": f"{d:%Y/%m/%d}"},
                          headers=H, timeout=60)
         rr = (r.json().get("result") or [{}]) if r.ok else [{}]
@@ -549,6 +589,54 @@ def update(data: Path, log=print):
         p.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         log(f"etf {code}: {doc['date']} 持股 {len(doc['stocks'])} 檔、期貨 {len(doc['futures'])}、"
             f"申購籃 {len(doc['inkind'])} 檔（{doc['issuer']} {doc.get('updated')}）")
+
+
+def trading_days() -> list[str]:
+    import pandas as pd
+    tx = pd.read_csv(ROOT.parent / "data" / "taiex.csv", usecols=["date"])["date"]
+    return sorted(str(x) for x in tx)
+
+
+def backfill(data: Path, start: str, end: str, codes=None, log=print):
+    """回補 start ~ end（含）之間各交易日的持股與申購買回清單；已有紀錄的日子略過"""
+    import time
+    global DAY, ANN
+    days = trading_days()
+    targets = [d for d in days if start <= d <= end]
+    stats = {}
+    for code in codes or list(ETFS):
+        issuer, _ = ETFS[code]
+        if issuer == "fubon":
+            log(f"etf {code}: 富邦官網只提供最新一日持股，無法回補")
+            continue
+        ok = miss = 0
+        folder = data / "etf" / code
+        for T in targets:
+            if (folder / f"{T}.json").exists():
+                continue
+            i = days.index(T)
+            DAY, ANN = T, (days[i + 1] if i + 1 < len(days) else None)
+            if not ANN:
+                continue
+            try:
+                doc = fetch(code)
+            except Exception as e:  # noqa: BLE001
+                log(f"etf {code} {T}: 失敗 {str(e)[:150]}")
+                miss += 1
+                continue
+            finally:
+                time.sleep(0.4)
+            if doc.get("date") != T or not (doc["stocks"] or doc["futures"]):
+                log(f"etf {code} {T}: 官網無此日資料（回傳 {doc.get('date')}，持股 {len(doc['stocks'])}）")
+                miss += 1
+                continue
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / f"{T}.json").write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            ok += 1
+        stats[code] = (ok, miss)
+        log(f"etf {code}: 回補 {ok} 天，缺 {miss} 天")
+    DAY = ANN = None
+    return stats
 
 
 def write(data: Path, site: Path):
@@ -660,6 +748,10 @@ def write_holdings(data: Path, site: Path):
 
 if __name__ == "__main__":
     import sys
+    if sys.argv[1:2] == ["--backfill"]:
+        # python scripts/etf.py --backfill 2026-10-01 2026-11-16 [代號 ...]
+        backfill(ROOT.parent / "data", sys.argv[2], sys.argv[3], sys.argv[4:] or None)
+        sys.exit(0)
     for c in sys.argv[1:] or list(ETFS):
         try:
             d = fetch(c)
