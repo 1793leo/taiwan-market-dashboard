@@ -11,16 +11,9 @@ jobs:
           python3 - <<'PY'
           import re, requests
           UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "zh-TW,zh;q=0.9"}
-          b = requests.get("https://www.yuantaetfs.com/_nuxt/fe3ef46b5581e1daf7be.js", headers=UA, timeout=60).text
-          for k in ("PCF/Daily", "ETFPCF/GetETFFuture"):
-              for m in list(re.finditer(re.escape(k), b))[:3]: print("YCTX", k, b[max(0, m.start()-700): m.start()+300].replace("\n", " "))
           h = requests.get("https://www.yuantaetfs.com/tradeInfo/pcf/0050", headers=UA, timeout=60).text
           for s in sorted(set(re.findall(r'src="(/_nuxt/[^"]+\.js)"', h))):
               b = requests.get("https://www.yuantaetfs.com" + s, headers=UA, timeout=60).text
-              for k in ("baseURL", "etfapi", "apiUrl", "API_URL"):
-                  for m in list(re.finditer(k, b))[:2]: print("YBASE", s, k, b[max(0, m.start()-150): m.start()+250].replace("\n", " "))
-          t = requests.get("https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=006208", headers=UA, timeout=60).text
-          print("FBJS", sorted(set(re.findall(r'(?:src|href)="([^"]+)"', t)))[:60])
-          for k in ("日期", "Date", "date"):
-              for m in list(re.finditer(k, t))[:4]: print("FBD", k, re.sub(r"\s+", " ", t[max(0, m.start()-200): m.start()+200]))
+              for k in ("$getAPI=", "getAPI\",", "api/bridge", "APIType", "\"/bridge"):
+                  for m in list(re.finditer(re.escape(k), b))[:3]: print("YG", s, k, b[max(0, m.start()-600): m.start()+700].replace("\n", " "))
           PY
